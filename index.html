@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NewMoon — Pardalar saloni</title>
+  <meta name="description" content="NewMoon pardalari: katalogdan tanlang, derazangizni suratga oling va pardani oʻz uyingizda koʻring.">
+  <meta name="theme-color" content="#0A101C">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Manrope:wght@400;500;600;700;800&display=swap">
+  <script>
+    // Apply the saved (or system) theme before first paint so there is no flash.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('nm-theme'); } catch (e) {}
+      if (t !== 'day' && t !== 'night') {
+        t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'day' : 'night';
+      }
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
+</head>
+<body>
+  <div id="app" aria-live="polite"></div>
+  <noscript>Saytdan foydalanish uchun JavaScript yoqilgan boʻlishi kerak.</noscript>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

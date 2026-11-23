@@ -1,0 +1,24 @@
+{
+  "name": "newmoon",
+  "version": "0.1.0",
+  "description": "NewMoon — pardani derazangizda sinab koʻring",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sadullakhaitov/curtains.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sadullakhaitov/curtains/issues"
+  },
+  "homepage": "https://github.com/sadullakhaitov/curtains#readme",
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "private": true,
+  "type": "module"
+}
