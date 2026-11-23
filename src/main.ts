@@ -1,8 +1,10 @@
 import './styles/main.css';
 import { route, startRouter } from './router';
+import { initLang } from './i18n';
 import { initTheme } from './theme';
 
 initTheme();
+initLang();
 // Fabric texture for CSS swatches; resolved against the page so it works from any sub-path.
 document.documentElement.style.setProperty('--fold-url', `url("${new URL('images/folds.webp', document.baseURI).href}")`);
 

@@ -1,19 +1,21 @@
-import { PRODUCTS, TYPE_LABEL, type CurtainType } from '../data/products';
+import { PRODUCTS, searchText, type CurtainType } from '../data/products';
+import { t } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { bindFavButtons, productCard } from '../ui/card';
-import { $, bindThemeToggle, bottomNav, esc, favs, html, themeButton } from '../ui/dom';
+import { $, bindHeader, bottomNav, esc, favs, html, langSwitch, themeButton } from '../ui/dom';
 import { icon } from '../ui/icons';
 
 const TYPES: (CurtainType | 'all')[] = ['all', 'classic', 'tulle', 'roller'];
 
 const view: View = {
   render(params) {
+    const T = t();
     const type = (params.type as CurtainType) || 'all';
     const q = (params.q || '').trim();
     const favOnly = params.fav === '1';
-    const query = (t: string) => {
+    const query = (ty: string) => {
       const sp = new URLSearchParams();
-      if (t !== 'all') sp.set('type', t);
+      if (ty !== 'all') sp.set('type', ty);
       if (q) sp.set('q', q);
       if (favOnly) sp.set('fav', '1');
       const s = sp.toString();
@@ -24,36 +26,36 @@ const view: View = {
     <main class="screen catalog has-nav">
       <div class="glow g1" aria-hidden="true"></div>
       <header class="topbar rise">
-        <button class="glass icon-btn press" data-back aria-label="Orqaga">${icon.back(20)}</button>
-        <h1 class="title serif">${favOnly ? 'Sevimlilar' : 'Katalog'}</h1>
-        ${themeButton()}
+        <button class="glass icon-btn press" data-back aria-label="${T.back}">${icon.back(20)}</button>
+        <h1 class="title serif">${favOnly ? T.favs : T.catalog}</h1>
+        <div class="row gap-8">${langSwitch()}${themeButton()}</div>
       </header>
 
       <form class="search rise d1" role="search">
         <label class="glass search-field">
           ${icon.search(19)}
-          <input name="q" type="search" value="${esc(q)}" placeholder="Parda, rang yoki mato…" aria-label="Qidirish" autocomplete="off">
+          <input name="q" type="search" value="${esc(q)}" placeholder="${T.searchPh}" aria-label="${T.search}" autocomplete="off">
         </label>
       </form>
 
-      <nav class="chips rise d2" aria-label="Turlar">
+      <nav class="chips rise d2" aria-label="${T.types}">
         ${TYPES.map(
-          (t) =>
-            `<a href="${query(t)}" data-replace class="chip-btn press ${t === type ? 'gold' : 'glass'}"${t === type ? ' aria-current="true"' : ''}>${t === 'all' ? 'Barchasi' : TYPE_LABEL[t]}</a>`,
+          (ty) =>
+            `<a href="${query(ty)}" data-replace class="chip-btn press ${ty === type ? 'gold' : 'glass'}"${ty === type ? ' aria-current="true"' : ''}>${ty === 'all' ? T.all : T.type[ty]}</a>`,
         ).join('')}
       </nav>
 
       <p class="count rise d2" data-count></p>
       <div class="grid rise d3" data-grid></div>
       <div class="empty glass" data-empty hidden>
-        <b>Hech narsa topilmadi</b>
-        <small>${favOnly ? 'Yurakcha belgisini bosib pardalarni sevimlilarga qoʻshing.' : 'Boshqa soʻz yoki turni sinab koʻring.'}</small>
+        <b>${T.emptyTitle}</b>
+        <small>${favOnly ? T.emptyFav : T.emptySearch}</small>
       </div>
       ${bottomNav(favOnly ? 'fav' : 'catalog')}
     </main>`);
   },
   mount(el, params) {
-    bindThemeToggle(el);
+    bindHeader(el);
     $(el, '[data-back]').addEventListener('click', () => back('/'));
     const type = params.type || 'all';
     const favOnly = params.fav === '1';
@@ -63,14 +65,10 @@ const view: View = {
     const draw = () => {
       const q = input.value.trim().toLowerCase();
       const list = PRODUCTS.filter(
-        (p) =>
-          (type === 'all' || p.type === type) &&
-          (!favOnly || favs.has(p.id)) &&
-          (!q ||
-            [p.name, p.fabric, TYPE_LABEL[p.type], ...p.colors.map((c) => c.name)].join(' ').toLowerCase().includes(q)),
+        (p) => (type === 'all' || p.type === type) && (!favOnly || favs.has(p.id)) && (!q || searchText(p).includes(q)),
       );
       grid.innerHTML = list.map(productCard).join('');
-      $(el, '[data-count]').textContent = `${list.length} ta parda`;
+      $(el, '[data-count]').textContent = t().count(list.length);
       $(el, '[data-empty]').hidden = list.length > 0;
     };
     draw();

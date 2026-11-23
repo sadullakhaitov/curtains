@@ -17,6 +17,7 @@ ulashish yoki Telegram orqali buyurtma berish mumkin.
   (u yerdan "Rasmni saqlash" → galereya), kompyuterda faylni yuklab oladi.
 - **Kun / tun rejimi** — tizim sozlamasiga qarab avtomatik, tugma bilan almashtiriladi (doira shaklida silliq oʻtish),
   tanlov eslab qolinadi.
+- **Ikki til** — oʻzbekcha va ruscha (UZ | RU tugmasi), telefon tiliga qarab avtomatik tanlanadi, tanlov eslab qolinadi.
 - **Liquid glass** dizayn, sahifalar orasida silliq oʻtishlar (View Transitions API), `prefers-reduced-motion` hurmat qilinadi.
 - **Yengil** — freymvorksiz (Vite + TypeScript), JS ~25 KB gzip, har bir sahifa kodi faqat kerak boʻlganda yuklanadi,
   rasmlar WebP (jami ~300 KB).
@@ -39,7 +40,8 @@ npm run preview    # build qilingan saytni koʻrish
 | Nima | Qayerda |
 |---|---|
 | Telegram va telefon raqami | `src/config.ts` → `CONTACT` (boʻsh boʻlsa tugmalar yashiriladi) |
-| Pardalar, ranglar, narxlar | `src/data/products.ts` |
+| Pardalar, ranglar, narxlar (uz/ru) | `src/data/products.ts` |
+| Sayt matnlari (uz/ru) | `src/i18n.ts` |
 | Mahsulot rasmlari | `public/images/` (WebP, ~480×600) |
 | Ranglar va dizayn tokenlari | `src/styles/main.css` boshida (`:root` — tun, `[data-theme='day']` — kun) |
 

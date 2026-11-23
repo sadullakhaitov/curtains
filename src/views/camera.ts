@@ -1,7 +1,9 @@
 import { MAX_PHOTO_SIDE } from '../config';
 import { findProduct, PRODUCTS } from '../data/products';
+import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { session, setPhoto } from '../store';
+import { fabricClass } from '../ui/card';
 import { $, esc, html, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
@@ -64,44 +66,45 @@ const view: View = {
       if (session.productId !== params.id) session.colorIndex = 0;
       session.productId = params.id;
     }
+    const T = t();
     const p = findProduct(session.productId) ?? PRODUCTS[0];
     const c = p.colors[session.colorIndex] ?? p.colors[0];
-    const fabricCls = p.type === 'roller' ? 'fabric roller' : 'fabric fold';
+    const fabricCls = fabricClass(p);
 
     return html(`
     <main class="screen camera">
       <div class="viewfinder">
-        <video playsinline muted autoplay aria-label="Kamera koʻrinishi"></video>
+        <video playsinline muted autoplay aria-label="${T.camView}"></video>
         <div class="cam-off" data-off hidden>
           <span class="cam-off-icon glass">${icon.camera(30)}</span>
-          <b>Kamera ochilmadi</b>
-          <small data-reason>Galereyadan rasm yuklang yoki namuna xonada sinab koʻring.</small>
+          <b>${T.camOff}</b>
+          <small data-reason>${T.camOffDefault}</small>
         </div>
         <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i><span class="scan"></span></div>
       </div>
 
       <header class="topbar overlay rise">
-        <button class="gp icon-btn press" data-back aria-label="Yopish">${icon.close(20)}</button>
-        <a href="#/catalog" class="gp chip-lg press" aria-label="Pardani almashtirish">
+        <button class="gp icon-btn press" data-back aria-label="${T.close}">${icon.close(20)}</button>
+        <a href="#/catalog" class="gp chip-lg press" aria-label="${T.changeCurtain}">
           <span class="dot ${fabricCls}" style="background-color:${c.hex}"></span>
-          <span class="ellipsis">${esc(p.name)}</span>
-          <span class="accent">Almashtirish</span>
+          <span class="ellipsis">${esc(tx(p.name))}</span>
+          <span class="accent">${T.change}</span>
         </a>
-        <button class="gp icon-btn press" data-torch aria-label="Chiroq" hidden>${icon.sparkle(18)}</button>
+        <button class="gp icon-btn press" data-torch aria-label="${T.torch}" hidden>${icon.sparkle(18)}</button>
         <span class="icon-btn" data-torch-spacer aria-hidden="true"></span>
       </header>
 
-      <div class="hint rise d1"><span class="gp chip"><span class="pulse-dot"></span>Derazani toʻliq kadrga oling</span></div>
+      <div class="hint rise d1"><span class="gp chip"><span class="pulse-dot"></span>${T.frameHint}</span></div>
 
-      <section class="sheet cam-sheet rise d2" aria-label="Kamera boshqaruvi">
-        <button class="sample-btn press" data-sample>${icon.sparkle()} Kamera yoʻqmi? Namuna xonada sinash</button>
+      <section class="sheet cam-sheet rise d2" aria-label="${T.camControls}">
+        <button class="sample-btn press" data-sample>${icon.sparkle()} ${T.sample}</button>
         <div class="cam-controls">
-          <label class="thumb-btn press" aria-label="Galereyadan yuklash">
+          <label class="thumb-btn press" aria-label="${T.gallery}">
             ${icon.image(24)}
             <input type="file" accept="image/*" data-file hidden>
           </label>
-          <button class="shutter press" data-shot aria-label="Suratga olish"><span class="gold"></span></button>
-          <button class="glass icon-btn lg press" data-flip aria-label="Kamerani almashtirish">${icon.flip(22)}</button>
+          <button class="shutter press" data-shot aria-label="${T.shoot}"><span class="gold"></span></button>
+          <button class="glass icon-btn lg press" data-flip aria-label="${T.flip}">${icon.flip(22)}</button>
         </div>
       </section>
       <div class="busy" data-busy hidden><span class="spinner"></span></div>
@@ -132,11 +135,7 @@ const view: View = {
     const start = async () => {
       stop();
       if (!navigator.mediaDevices?.getUserMedia) {
-        showOff(
-          isSecureContext
-            ? 'Bu brauzer kamerani qoʻllamaydi. Galereyadan rasm yuklang.'
-            : 'Kamera faqat xavfsiz (https) saytda ishlaydi. Galereyadan rasm yuklang.',
-        );
+        showOff(isSecureContext ? t().camNoSupport : t().camInsecure);
         return;
       }
       try {
@@ -160,11 +159,7 @@ const view: View = {
         $(el, '[data-torch-spacer]').hidden = !!caps.torch;
       } catch (e) {
         const name = (e as DOMException).name;
-        showOff(
-          name === 'NotAllowedError'
-            ? 'Kameraga ruxsat berilmadi. Brauzer sozlamalaridan ruxsat bering yoki galereyadan rasm yuklang.'
-            : undefined,
-        );
+        showOff(name === 'NotAllowedError' ? t().camDenied : undefined);
       }
     };
 
@@ -175,7 +170,7 @@ const view: View = {
 
     shot.addEventListener('click', () => {
       if (!stream || !video.videoWidth) {
-        toast('Kamera tayyor emas — galereyadan rasm yuklang', 'info');
+        toast(t().camNotReady, 'info');
         return;
       }
       el.classList.add('flash');
@@ -190,7 +185,7 @@ const view: View = {
         done(await fileToCanvas(f));
       } catch {
         busy.hidden = true;
-        toast('Rasmni ochib boʻlmadi', 'info');
+        toast(t().badImage, 'info');
       }
     });
 
@@ -201,7 +196,7 @@ const view: View = {
         done(c, corners);
       } catch {
         busy.hidden = true;
-        toast('Namuna rasm yuklanmadi', 'info');
+        toast(t().sampleFail, 'info');
       }
     });
 

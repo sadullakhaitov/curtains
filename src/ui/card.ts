@@ -1,30 +1,34 @@
-import { formatPrice, TYPE_LABEL, type Product } from '../data/products';
-import { esc, favs, swatchStyle } from './dom';
+import { formatPrice, typeLabel, type Product } from '../data/products';
+import { t, tx } from '../i18n';
+import { esc, favs } from './dom';
 import { icon } from './icons';
 
+export const fabricClass = (p: Product) => (p.type === 'roller' ? 'fabric roller' : 'fabric fold');
+
 /** Product media: interior photo, or the tinted fabric itself when there is no photo. */
-export function productMedia(p: Product, colorIndex = 0, eager = false) {
+export function productMedia(p: Product, colorIndex = 0) {
+  const name = tx(p.name);
   if (p.image) {
-    return `<img src="${p.image}" alt="${esc(p.name)} — interyerda" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+    return `<img src="${p.image}" alt="${esc(name)} — ${t().inInterior}" loading="lazy" decoding="async">`;
   }
   const c = p.colors[colorIndex] ?? p.colors[0];
-  const cls = p.type === 'roller' ? 'fabric roller' : 'fabric fold';
-  return `<div class="${cls}" style="${swatchStyle(c.hex)}" role="img" aria-label="${esc(p.name)}, ${esc(c.name)}"></div>`;
+  return `<div class="${fabricClass(p)}" style="background-color:${c.hex}" role="img" aria-label="${esc(name)}, ${esc(tx(c.name))}"></div>`;
 }
 
 export function productCard(p: Product) {
   const fav = favs.has(p.id);
+  const name = esc(tx(p.name));
   return `
   <article class="card">
-    <a href="#/p/${p.id}" class="card-media zoom press" aria-label="${esc(p.name)}">
+    <a href="#/p/${p.id}" class="card-media zoom press" aria-label="${name}">
       ${productMedia(p)}
-      <span class="chip gp card-type">${TYPE_LABEL[p.type]}</span>
+      <span class="chip gp card-type">${typeLabel(p.type)}</span>
     </a>
-    <button class="gp icon-btn sm card-fav press${fav ? ' is-on' : ''}" data-fav="${p.id}" aria-pressed="${fav}" aria-label="Sevimlilarga qoʻshish">${icon.heart(16)}</button>
+    <button class="gp icon-btn sm card-fav press${fav ? ' is-on' : ''}" data-fav="${p.id}" aria-pressed="${fav}" aria-label="${t().addFav}">${icon.heart(16)}</button>
     <a href="#/p/${p.id}" class="card-body">
-      <span class="card-name">${esc(p.name)}</span>
+      <span class="card-name">${name}</span>
       <span class="card-price">${formatPrice(p)}</span>
-      <span class="card-dots" aria-label="${p.colors.length} ta rang">${p.colors
+      <span class="card-dots" aria-label="${t().colorsCount(p.colors.length)}">${p.colors
         .slice(0, 5)
         .map((c) => `<i style="background:${c.hex}"></i>`)
         .join('')}</span>
@@ -35,9 +39,9 @@ export function productCard(p: Product) {
 export function bindFavButtons(root: HTMLElement, onChange?: () => void) {
   root.addEventListener('click', (e) => {
     const b = (e.target as Element).closest('[data-fav]') as HTMLButtonElement | null;
-    if (!b) return;
+    if (!b || !b.dataset.fav) return;
     e.preventDefault();
-    const on = favs.toggle(b.dataset.fav!);
+    const on = favs.toggle(b.dataset.fav);
     b.classList.toggle('is-on', on);
     b.setAttribute('aria-pressed', String(on));
     onChange?.();

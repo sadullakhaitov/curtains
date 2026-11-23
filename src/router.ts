@@ -43,6 +43,15 @@ export function back(fallback = '/') {
   else navigate(fallback, true);
 }
 
+let fade = false;
+
+/** Re-renders the current screen in place (e.g. after a language change) with a cross-fade. */
+export function refresh() {
+  rendered = '';
+  fade = true;
+  resolve();
+}
+
 async function resolve() {
   const full = current();
   if (full === rendered) return;
@@ -60,14 +69,16 @@ async function resolve() {
   rendered = full;
 
   const i = index();
-  const dir = i >= lastIndex ? 'forward' : 'back';
+  const dir = fade ? 'fade' : i >= lastIndex ? 'forward' : 'back';
+  fade = false;
   lastIndex = i;
 
   const swap = () => {
     if (typeof cleanup === 'function') cleanup();
     cleanup = undefined;
+    const keepScroll = dir === 'fade' ? window.scrollY : 0;
     root.replaceChildren(el);
-    window.scrollTo(0, 0);
+    window.scrollTo(0, keepScroll);
     cleanup = view.mount?.(el, params);
   };
 

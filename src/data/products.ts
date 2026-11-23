@@ -1,123 +1,130 @@
+import { t, tx, type L } from '../i18n';
+
 export type CurtainType = 'classic' | 'tulle' | 'roller';
 
 export interface CurtainColor {
-  name: string;
+  name: L;
   /** Base colour. The fabric texture is multiplied by it, so use the brightest tone of the fabric. */
   hex: string;
 }
 
 export interface Product {
   id: string;
-  name: string;
+  name: L;
   type: CurtainType;
-  fabric: string;
-  description: string;
+  fabric: L;
+  description: L;
   /** Interior photo for the card. Without it the card shows the tinted fabric itself. */
   image?: string;
   colors: CurtainColor[];
-  /** Price in so'm per metre. `null` shows "narxi so'rov bo'yicha". */
+  /** Price in so'm per metre. `null` shows "price on request". */
   price: number | null;
   popular?: boolean;
 }
 
-export const TYPE_LABEL: Record<CurtainType, string> = {
-  classic: 'Klassik',
-  tulle: 'Tyul',
-  roller: 'Rulonli',
-};
-
 const img = (name: string) => `images/${name}`;
+const c = (uz: string, ru: string, hex: string): CurtainColor => ({ name: { uz, ru }, hex });
 
 export const PRODUCTS: Product[] = [
   {
     id: 'barxat',
-    name: 'Barxat',
+    name: { uz: 'Barxat', ru: 'Бархат' },
     type: 'classic',
-    fabric: 'Barxat',
-    description: 'Ogʻir, yumshoq barxat. Chuqur burmalar va boy rang xonaga hashamat qoʻshadi.',
+    fabric: { uz: 'Barxat', ru: 'Бархат' },
+    description: {
+      uz: 'Ogʻir, yumshoq barxat. Chuqur burmalar va boy rang xonaga hashamat qoʻshadi.',
+      ru: 'Плотный мягкий бархат. Глубокие складки и насыщенный цвет добавляют комнате роскоши.',
+    },
     colors: [
-      { name: 'Bordo', hex: '#A3283F' },
-      { name: 'Zumrad', hex: '#23806A' },
-      { name: 'Toʻq koʻk', hex: '#3A4F8C' },
-      { name: 'Grafit', hex: '#7A808C' },
-      { name: 'Bej', hex: '#E3D2B0' },
+      c('Bordo', 'Бордовый', '#A3283F'),
+      c('Zumrad', 'Изумрудный', '#23806A'),
+      c('Toʻq koʻk', 'Тёмно-синий', '#3A4F8C'),
+      c('Grafit', 'Графит', '#7A808C'),
+      c('Bej', 'Бежевый', '#E3D2B0'),
     ],
     price: null,
     popular: true,
   },
   {
     id: 'blackout-antrasit',
-    name: 'Blackout Antrasit',
+    name: { uz: 'Blackout Antrasit', ru: 'Блэкаут Антрацит' },
     type: 'classic',
-    fabric: 'Blackout',
-    description: 'Yorugʻlikni deyarli toʻliq toʻsadi. Yotoqxona va kinozal uchun ideal.',
+    fabric: { uz: 'Blackout', ru: 'Блэкаут' },
+    description: {
+      uz: 'Yorugʻlikni deyarli toʻliq toʻsadi. Yotoqxona va kinozal uchun ideal.',
+      ru: 'Почти полностью блокирует свет. Идеально для спальни и домашнего кинотеатра.',
+    },
     image: img('p_qora.webp'),
-    colors: [
-      { name: 'Antrasit', hex: '#4A4F58' },
-      { name: 'Qora', hex: '#2E3036' },
-      { name: 'Kumush', hex: '#A9ADB4' },
-    ],
+    colors: [c('Antrasit', 'Антрацит', '#4A4F58'), c('Qora', 'Чёрный', '#2E3036'), c('Kumush', 'Серебристый', '#A9ADB4')],
     price: null,
     popular: true,
   },
   {
     id: 'tyul-krem',
-    name: 'Tyul Krem',
+    name: { uz: 'Tyul Krem', ru: 'Тюль Крем' },
     type: 'tulle',
-    fabric: 'Voal',
-    description: 'Yengil, havodor tyul. Kunduzgi yorugʻlikni yumshoq tarqatadi.',
+    fabric: { uz: 'Voal', ru: 'Вуаль' },
+    description: {
+      uz: 'Yengil, havodor tyul. Kunduzgi yorugʻlikni yumshoq tarqatadi.',
+      ru: 'Лёгкий воздушный тюль. Мягко рассеивает дневной свет.',
+    },
     image: img('p_tyul.webp'),
-    colors: [
-      { name: 'Krem', hex: '#F4E9D2' },
-      { name: 'Oq', hex: '#FFFFFF' },
-    ],
+    colors: [c('Krem', 'Кремовый', '#F4E9D2'), c('Oq', 'Белый', '#FFFFFF')],
     price: null,
     popular: true,
   },
   {
     id: 'zaytun-klassik',
-    name: 'Klassik Zaytun',
+    name: { uz: 'Klassik Zaytun', ru: 'Классика Олива' },
     type: 'classic',
-    fabric: 'Kanvas',
-    description: 'Tabiiy zaytun rangli zich mato. Mehmonxona uchun iliq va sokin tanlov.',
+    fabric: { uz: 'Kanvas', ru: 'Канвас' },
+    description: {
+      uz: 'Tabiiy zaytun rangli zich mato. Mehmonxona uchun iliq va sokin tanlov.',
+      ru: 'Плотная ткань природного оливкового оттенка. Тёплый и спокойный выбор для гостиной.',
+    },
     image: img('p_zaytun.webp'),
-    colors: [
-      { name: 'Zaytun', hex: '#7D8462' },
-      { name: 'Qum', hex: '#CDBB98' },
-      { name: 'Kulrang', hex: '#8C9096' },
-    ],
+    colors: [c('Zaytun', 'Оливковый', '#7D8462'), c('Qum', 'Песочный', '#CDBB98'), c('Kulrang', 'Серый', '#8C9096')],
     price: null,
     popular: true,
   },
   {
     id: 'dimout-kok',
-    name: 'Dimout Koʻk',
+    name: { uz: 'Dimout Koʻk', ru: 'Димаут Синий' },
     type: 'classic',
-    fabric: 'Dimout',
-    description: 'Yorugʻlikni qisman toʻsadi, xonani salqin va qorongʻiroq qiladi.',
+    fabric: { uz: 'Dimout', ru: 'Димаут' },
+    description: {
+      uz: 'Yorugʻlikni qisman toʻsadi, xonani salqin va qorongʻiroq qiladi.',
+      ru: 'Частично затемняет комнату и сохраняет прохладу.',
+    },
     image: img('p_kok.webp'),
-    colors: [
-      { name: 'Koʻk-kulrang', hex: '#6A7891' },
-      { name: 'Dengiz', hex: '#3C5577' },
-    ],
+    colors: [c('Koʻk-kulrang', 'Серо-голубой', '#6A7891'), c('Dengiz', 'Морской', '#3C5577')],
     price: null,
   },
   {
     id: 'rulon',
-    name: 'Rulonli parda',
+    name: { uz: 'Rulonli parda', ru: 'Рулонная штора' },
     type: 'roller',
-    fabric: 'Polyester',
-    description: 'Ixcham rulonli parda. Deraza romiga oʻrnatiladi, joy egallamaydi.',
-    colors: [
-      { name: 'Oq', hex: '#F2F0EB' },
-      { name: 'Bej', hex: '#D9C9A8' },
-      { name: 'Grafit', hex: '#6B7079' },
-    ],
+    fabric: { uz: 'Polyester', ru: 'Полиэстер' },
+    description: {
+      uz: 'Ixcham rulonli parda. Deraza romiga oʻrnatiladi, joy egallamaydi.',
+      ru: 'Компактная рулонная штора. Крепится на раму и не занимает места.',
+    },
+    colors: [c('Oq', 'Белый', '#F2F0EB'), c('Bej', 'Бежевый', '#D9C9A8'), c('Grafit', 'Графит', '#6B7079')],
     price: null,
   },
 ];
 
 export const findProduct = (id: string | undefined) => PRODUCTS.find((p) => p.id === id);
 
+export const typeLabel = (type: CurtainType) => t().type[type];
+
 export const formatPrice = (p: Product) =>
-  p.price == null ? 'Narxi soʻrov boʻyicha' : `${p.price.toLocaleString('ru-RU').replace(/,/g, ' ')} soʻm / m`;
+  p.price == null ? t().priceOnRequest : `${p.price.toLocaleString('ru-RU').replace(/,/g, ' ')} ${t().perMeter}`;
+
+/** Text used for search, in both languages so either spelling matches. */
+export const searchText = (p: Product) =>
+  [p.name.uz, p.name.ru, p.fabric.uz, p.fabric.ru, t().type[p.type], ...p.colors.flatMap((x) => [x.name.uz, x.name.ru])]
+    .join(' ')
+    .toLowerCase();
+
+export { tx };

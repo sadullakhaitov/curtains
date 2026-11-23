@@ -2,13 +2,15 @@ import { exportImage } from '../ar/export';
 import { defaultCorners, isConvex, type Point } from '../ar/homography';
 import { CurtainRenderer, loadFold } from '../ar/renderer';
 import { findProduct, PRODUCTS, type Product } from '../data/products';
+import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { session } from '../store';
+import { fabricClass } from '../ui/card';
 import { $, $$, esc, html, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
 const product = (): Product => findProduct(session.productId) ?? PRODUCTS[0];
-const fabricCls = (p: Product) => (p.type === 'roller' ? 'fabric roller' : 'fabric fold');
+const fabricCls = fabricClass;
 
 function controlsFor(p: Product) {
   const slider = (key: string, label: string, value: number) => `
@@ -17,9 +19,9 @@ function controlsFor(p: Product) {
       <input id="s-${key}" type="range" min="0" max="100" value="${Math.round(value * 100)}" data-s="${key}">
     </div>`;
   return [
-    p.type !== 'tulle' ? slider('open', p.type === 'roller' ? 'Koʻtarish' : 'Pardani ochish', session.open) : '',
-    p.type === 'classic' ? slider('tulle', 'Tyul zichligi', session.tulle) : '',
-    p.type !== 'roller' ? slider('drop', 'Uzunlik (deraza ostiga)', session.drop) : '',
+    p.type !== 'tulle' ? slider('open', p.type === 'roller' ? t().lift : t().open, session.open) : '',
+    p.type === 'classic' ? slider('tulle', t().tulle, session.tulle) : '',
+    p.type !== 'roller' ? slider('drop', t().drop, session.drop) : '',
   ].join('');
 }
 
@@ -27,7 +29,7 @@ function colorsFor(p: Product) {
   return p.colors
     .map(
       (c, i) =>
-        `<button class="swatch sm ${fabricCls(p)} press${i === session.colorIndex ? ' is-on' : ''}" role="radio" aria-checked="${i === session.colorIndex}" aria-label="${esc(c.name)}" data-ci="${i}" style="background-color:${c.hex}"></button>`,
+        `<button class="swatch sm ${fabricCls(p)} press${i === session.colorIndex ? ' is-on' : ''}" role="radio" aria-checked="${i === session.colorIndex}" aria-label="${esc(tx(c.name))}" data-ci="${i}" style="background-color:${c.hex}"></button>`,
     )
     .join('');
 }
@@ -38,48 +40,49 @@ const view: View = {
       setTimeout(() => navigate('/try', true), 0);
       return html('<main class="screen center"><span class="spinner"></span></main>');
     }
+    const T = t();
     const p = product();
     return html(`
     <main class="screen adjust">
       <div class="stage" data-stage>
-        <canvas data-canvas aria-label="Derazaga qoʻyilgan parda" role="img"></canvas>
+        <canvas data-canvas aria-label="${T.curtainOnWindow}" role="img"></canvas>
         <div class="handles" data-handles>
           <svg class="quad" aria-hidden="true"><polygon data-poly></polygon></svg>
           ${[0, 1, 2, 3]
-            .map((i) => `<button class="handle" data-h="${i}" aria-label="Deraza burchagi ${i + 1}. Strelka tugmalari bilan suring"><i></i></button>`)
+            .map((i) => `<button class="handle" data-h="${i}" aria-label="${T.corner(i + 1)}"><i></i></button>`)
             .join('')}
           <div class="loupe" data-loupe hidden><canvas width="240" height="240"></canvas><i></i></div>
         </div>
-        <div class="hint stage-hint"><span class="gp chip">${icon.move(15)} Nuqtalarni deraza burchaklariga suring</span></div>
+        <div class="hint stage-hint"><span class="gp chip">${icon.move(15)} ${T.moveHint}</span></div>
         <div class="stage-error glass" data-error hidden></div>
       </div>
 
       <header class="topbar overlay rise">
-        <button class="gp icon-btn press" data-back aria-label="Qayta suratga olish">${icon.back(20)}</button>
+        <button class="gp icon-btn press" data-back aria-label="${T.retake}">${icon.back(20)}</button>
         <div class="row gap-8">
-          <button class="gp icon-btn press" data-reset aria-label="Burchaklarni qayta joylash">${icon.reset(19)}</button>
-          <button class="gp chip-lg press" data-toggle aria-pressed="false">Koʻrish</button>
+          <button class="gp icon-btn press" data-reset aria-label="${T.resetCorners}">${icon.reset(19)}</button>
+          <button class="gp chip-lg press" data-toggle aria-pressed="false">${T.preview}</button>
         </div>
-        <button class="gold btn-sm press" data-done>Tayyor</button>
+        <button class="gold btn-sm press" data-done>${T.done}</button>
       </header>
 
-      <section class="sheet adj-sheet rise d1" aria-label="Sozlamalar">
+      <section class="sheet adj-sheet rise d1" aria-label="${T.settings}">
         <div class="grabber" aria-hidden="true"></div>
-        <div class="products" role="radiogroup" aria-label="Parda">
+        <div class="products" role="radiogroup" aria-label="${T.curtain}">
           ${PRODUCTS.map(
             (x) => `
             <button class="prod-pill press${x.id === p.id ? ' is-on' : ''}" role="radio" aria-checked="${x.id === p.id}" data-pid="${x.id}">
-              <span class="dot ${fabricCls(x)}" style="background-color:${x.colors[0].hex}"></span>${esc(x.name)}
+              <span class="dot ${fabricCls(x)}" style="background-color:${x.colors[0].hex}"></span>${esc(tx(x.name))}
             </button>`,
           ).join('')}
         </div>
         <div class="row between">
-          <div class="swatches" role="radiogroup" aria-label="Rang" data-colors>${colorsFor(p)}</div>
-          <span class="muted small" data-cname>${esc(p.colors[session.colorIndex]?.name ?? '')}</span>
+          <div class="swatches" role="radiogroup" aria-label="${T.color}" data-colors>${colorsFor(p)}</div>
+          <span class="muted small" data-cname>${esc(tx((p.colors[session.colorIndex] ?? p.colors[0]).name))}</span>
         </div>
         <div class="sliders" data-sliders>${controlsFor(p)}</div>
       </section>
-      <div class="busy" data-busy hidden><span class="spinner"></span><b>Rasm tayyorlanmoqda…</b></div>
+      <div class="busy" data-busy hidden><span class="spinner"></span><b>${T.preparing}</b></div>
     </main>`);
   },
 
@@ -146,7 +149,7 @@ const view: View = {
       .catch((e) => {
         const err = $(el, '[data-error]');
         err.hidden = false;
-        err.innerHTML = `<b>Pardani chizib boʻlmadi</b><small>${esc(String(e.message || e))}. Boshqa brauzerda (Chrome, Safari) urinib koʻring.</small>`;
+        err.innerHTML = `<b>${t().drawFail}</b><small>${esc(String(e.message || e))}. ${t().drawFailHint}</small>`;
       });
 
     // ---- Dragging corners (pointer events cover mouse, touch and pen) ----
@@ -237,7 +240,7 @@ const view: View = {
             o.classList.toggle('is-on', o === b);
             o.setAttribute('aria-checked', String(o === b));
           }
-          $(el, '[data-cname]').textContent = product().colors[session.colorIndex].name;
+          $(el, '[data-cname]').textContent = tx(product().colors[session.colorIndex].name);
           schedule();
         });
       }
@@ -259,7 +262,7 @@ const view: View = {
           o.setAttribute('aria-checked', String(o === b));
         }
         $(el, '[data-colors]').innerHTML = colorsFor(p);
-        $(el, '[data-cname]').textContent = p.colors[0].name;
+        $(el, '[data-cname]').textContent = tx(p.colors[0].name);
         $(el, '[data-sliders]').innerHTML = controlsFor(p);
         bindColors();
         bindSliders();
@@ -272,7 +275,7 @@ const view: View = {
     toggle.addEventListener('click', () => {
       const hidden = el.classList.toggle('preview');
       toggle.setAttribute('aria-pressed', String(hidden));
-      toggle.textContent = hidden ? 'Tahrirlash' : 'Koʻrish';
+      toggle.textContent = hidden ? t().edit : t().preview;
     });
 
     $(el, '[data-reset]').addEventListener('click', () => {
@@ -291,7 +294,7 @@ const view: View = {
       try {
         const p = product();
         const c = p.colors[session.colorIndex] ?? p.colors[0];
-        const blob = await exportImage(canvas, draw, `${p.name} · ${c.name}`);
+        const blob = await exportImage(canvas, draw, `${tx(p.name)} · ${tx(c.name)}`);
         if (session.resultUrl) URL.revokeObjectURL(session.resultUrl);
         session.result = blob;
         session.resultUrl = URL.createObjectURL(blob);
@@ -302,7 +305,7 @@ const view: View = {
         navigate('/result');
       } catch {
         busy.hidden = true;
-        toast('Rasmni tayyorlab boʻlmadi', 'info');
+        toast(t().prepFail, 'info');
       }
     });
 
