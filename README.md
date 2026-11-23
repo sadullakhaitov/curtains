@@ -36,6 +36,11 @@ npm run build:artifact  # claude.ai sahifasi uchun bitta skriptli versiya (dist-
 > HTTPS boʻlishi shart (GitHub Pages, Netlify, Vercel, Cloudflare Pages — hammasida avtomatik). `dist/` papkasi
 > oddiy statik fayllar, istalgan hostingga yuklash mumkin.
 
+## Internetda
+
+Sayt GitHub Pages'da: **https://sadullakhaitov.github.io/curtains/**. `.github/workflows/pages.yml` har bir push'da saytni
+qayta yigʻib, `gh-pages` branch'iga joylaydi (Settings → Pages → Source: `gh-pages` / root).
+
 ## Sozlash
 
 | Nima | Qayerda |
