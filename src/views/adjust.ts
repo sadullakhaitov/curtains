@@ -102,13 +102,16 @@ const view: View = {
     if (!session.corners) session.corners = defaultCorners(photo.width, photo.height);
     const corners = session.corners;
     let renderer: CurtainRenderer | null = null;
+    // Curtain opacity: see-through while corners are being placed so the window frame stays visible.
+    let alpha = 1;
+    let alphaAnim = 0;
     let scale = 1; // CSS px per photo px
     let raf = 0;
 
     const params = () => {
       const p = product();
       const c = p.colors[session.colorIndex] ?? p.colors[0];
-      return { type: p.type, color: c.hex, open: session.open, tulle: session.tulle, drop: session.drop };
+      return { type: p.type, color: c.hex, open: session.open, tulle: session.tulle, drop: session.drop, alpha };
     };
 
     const draw = () => {
@@ -156,6 +159,20 @@ const view: View = {
         err.innerHTML = `<b>${t().drawFail}</b><small>${esc(String(e.message || e))}. ${t().drawFailHint}</small>`;
       });
 
+    const fadeTo = (target: number, delay = 0) => {
+      cancelAnimationFrame(alphaAnim);
+      const from = alpha;
+      const t0 = performance.now() + delay;
+      const step = (now: number) => {
+        const p = Math.max(0, Math.min(1, (now - t0) / 280));
+        alpha = from + (target - from) * (1 - Math.pow(1 - p, 2));
+        schedule();
+        if (p < 1) alphaAnim = requestAnimationFrame(step);
+      };
+      alphaAnim = requestAnimationFrame(step);
+    };
+    const SEE_THROUGH = 0.32;
+
     // ---- Automatic window detection, with the handles gliding to the result ----
     let anim = 0;
     const animateTo = (target: Point[]) => {
@@ -172,6 +189,8 @@ const view: View = {
         if (p < 1) anim = requestAnimationFrame(step);
       };
       anim = requestAnimationFrame(step);
+      alpha = SEE_THROUGH;
+      fadeTo(1, dur + 250);
     };
     const autoDetect = (manual: boolean) => {
       const btn = $(el, '[data-auto]');
@@ -231,6 +250,7 @@ const view: View = {
       h.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         cancelAnimationFrame(anim);
+        fadeTo(SEE_THROUGH);
         active = i;
         h.setPointerCapture(e.pointerId);
         const p = toPhoto(e.clientX, e.clientY);
@@ -249,6 +269,7 @@ const view: View = {
       const end = () => {
         if (active !== i) return;
         active = -1;
+        fadeTo(1, 120);
         el.classList.remove('dragging');
         h.classList.remove('is-active');
         loupe.hidden = true;
@@ -330,6 +351,8 @@ const view: View = {
       if (!renderer) return;
       const busy = $(el, '[data-busy]');
       busy.hidden = false;
+      cancelAnimationFrame(alphaAnim);
+      alpha = 1;
       try {
         const p = product();
         const c = p.colors[session.colorIndex] ?? p.colors[0];
@@ -350,6 +373,7 @@ const view: View = {
 
     return () => {
       cancelAnimationFrame(anim);
+      cancelAnimationFrame(alphaAnim);
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
