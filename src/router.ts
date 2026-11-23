@@ -32,8 +32,14 @@ const current = () => location.hash.replace(/^#/, '') || '/';
 /** In-app navigation. Every entry remembers its depth so `back()` knows whether there is an in-app page behind it. */
 export function navigate(path: string, replace = false) {
   const i = replace ? index() : index() + 1;
-  if (replace) history.replaceState({ i }, '', '#' + path);
-  else history.pushState({ i }, '', '#' + path);
+  try {
+    if (replace) history.replaceState({ i }, '', '#' + path);
+    else history.pushState({ i }, '', '#' + path);
+  } catch {
+    // Some sandboxed frames refuse the History API; plain hash navigation still works.
+    location.hash = path;
+    return;
+  }
   resolve();
 }
 
@@ -95,7 +101,11 @@ async function resolve() {
 
 export function startRouter(el: HTMLElement) {
   root = el;
-  if (!history.state) history.replaceState({ i: 0 }, '', location.href);
+  try {
+    if (!history.state) history.replaceState({ i: 0 }, '', location.href);
+  } catch {
+    /* sandboxed frame: hash navigation only */
+  }
   addEventListener('popstate', resolve);
   addEventListener('hashchange', resolve);
   // Plain links like <a href="#/catalog"> go through navigate() so they get history depth + transitions.

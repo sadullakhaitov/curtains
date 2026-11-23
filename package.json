@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "build:artifact": "tsc --noEmit && vite build --mode artifact"
   },
   "repository": {
     "type": "git",

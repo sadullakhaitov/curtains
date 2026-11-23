@@ -61,8 +61,31 @@ export async function exportImage(gl: HTMLCanvasElement, draw: () => void, capti
   );
 }
 
+type DownloadsApi = { save(r: { filename: string; data: Blob }): Promise<unknown> };
+type ClaudeHost = { use(name: string): Promise<unknown> };
+
+/** When the site runs inside a claude.ai page, saving goes through the host's download prompt. */
+async function hostDownloads(): Promise<DownloadsApi | null> {
+  const host = (window as unknown as { claude?: ClaudeHost }).claude;
+  if (!host?.use) return null;
+  try {
+    return (await host.use('downloads')) as DownloadsApi | null;
+  } catch {
+    return null;
+  }
+}
+
 /** Saves to the gallery where possible: the share sheet on phones ("Save image"), a download elsewhere. */
 export async function saveImage(blob: Blob, filename: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
+  const dl = await hostDownloads();
+  if (dl) {
+    try {
+      await dl.save({ filename, data: blob });
+      return 'downloaded';
+    } catch (e) {
+      if ((e as { code?: string }).code === 'declined') return 'cancelled';
+    }
+  }
   const file = new File([blob], filename, { type: blob.type });
   const mobile = matchMedia('(pointer: coarse)').matches;
   if (mobile && navigator.canShare?.({ files: [file] })) {

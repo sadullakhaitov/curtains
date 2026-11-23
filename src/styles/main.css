@@ -25,7 +25,7 @@
   --fold-url: none;
   color-scheme: dark;
 }
-:root[data-theme='day'] {
+:root:is([data-theme='day'], [data-theme='light']) {
   --bg: #f3eee4;
   --bg2: #fbf8f2;
   --stage: #e7e0d3;
@@ -194,8 +194,8 @@ html.theme-vt::view-transition-new(root) { z-index: 1; }
 .icon-btn.lg { width: 52px; height: 52px; border-radius: 26px; }
 .ti { display: inline-flex; transition: transform 0.5s var(--ease), opacity 0.4s ease; }
 .ti-moon { position: absolute; }
-:root[data-theme='night'] .ti-moon, :root:not([data-theme]) .ti-moon { opacity: 0; transform: rotate(-90deg) scale(0.6); }
-:root[data-theme='day'] .ti-sun { opacity: 0; transform: rotate(90deg) scale(0.6); }
+:root:not([data-theme='day']):not([data-theme='light']) .ti-moon { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+:root:is([data-theme='day'], [data-theme='light']) .ti-sun { opacity: 0; transform: rotate(90deg) scale(0.6); }
 
 .chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
 .chip-lg { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 14px; border-radius: 22px; font-size: 13px; font-weight: 700; max-width: 100%; min-width: 0; }

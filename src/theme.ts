@@ -1,6 +1,8 @@
 export type Theme = 'day' | 'night';
 
-export const getTheme = (): Theme => (document.documentElement.dataset.theme === 'day' ? 'day' : 'night');
+// 'light'/'dark' may be set by an embedding host (claude.ai); treat them as day/night.
+const attr = () => document.documentElement.dataset.theme;
+export const getTheme = (): Theme => (attr() === 'day' || attr() === 'light' ? 'day' : 'night');
 
 const META = { day: '#F3EEE4', night: '#0A101C' };
 

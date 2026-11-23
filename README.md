@@ -29,6 +29,7 @@ npm install
 npm run dev        # http://localhost:5173 — telefonda sinash uchun bir xil Wi‑Fi'dagi IP manzilni oching
 npm run build      # tayyor sayt dist/ papkasiga
 npm run preview    # build qilingan saytni koʻrish
+npm run build:artifact  # claude.ai sahifasi uchun bitta skriptli versiya (dist-artifact/)
 ```
 
 > **Muhim:** brauzerlar kamerani faqat **https** saytda (yoki `localhost`da) ochadi. Saytni internetga joylaganda
