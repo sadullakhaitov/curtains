@@ -3,7 +3,10 @@ import { t, tx } from '../i18n';
 import { esc, favs } from './dom';
 import { icon } from './icons';
 
-export const fabricClass = (p: Product) => (p.type === 'roller' ? 'fabric roller' : 'fabric fold');
+export const fabricClass = (p: Product) => (p.texture ? 'fabric photo' : p.type === 'roller' || p.type === 'zebra' ? 'fabric roller' : 'fabric fold');
+
+/** Inline style for a fabric swatch: the colour, plus the real fabric photo when the product has one. */
+export const fabricStyle = (p: Product, hex: string) => `background-color:${hex}${p.texture ? `;background-image:url(${p.texture})` : ''}`;
 
 /** Product media: interior photo, or the tinted fabric itself when there is no photo. */
 export function productMedia(p: Product, colorIndex = 0) {
@@ -12,7 +15,7 @@ export function productMedia(p: Product, colorIndex = 0) {
     return `<img src="${p.image}" alt="${esc(name)} — ${t().inInterior}" loading="lazy" decoding="async">`;
   }
   const c = p.colors[colorIndex] ?? p.colors[0];
-  return `<div class="${fabricClass(p)}" style="background-color:${c.hex}" role="img" aria-label="${esc(name)}, ${esc(tx(c.name))}"></div>`;
+  return `<div class="${fabricClass(p)}" style="${fabricStyle(p, c.hex)}" role="img" aria-label="${esc(name)}, ${esc(tx(c.name))}"></div>`;
 }
 
 export function productCard(p: Product) {

@@ -4,7 +4,7 @@ import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { preloadVision } from '../ar/vision';
 import { session, setPhoto } from '../store';
-import { fabricClass } from '../ui/card';
+import { fabricClass, fabricStyle } from '../ui/card';
 import { $, esc, html, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
@@ -89,7 +89,7 @@ const view: View = {
       <header class="topbar overlay rise">
         <button class="gp icon-btn press" data-back aria-label="${T.close}">${icon.close(20)}</button>
         <a href="#/catalog" class="gp chip-lg press" aria-label="${T.changeCurtain}">
-          <span class="dot ${fabricCls}" style="background-color:${c.hex}"></span>
+          <span class="dot ${fabricCls}" style="${fabricStyle(p, c.hex)}"></span>
           <span class="ellipsis">${esc(tx(p.name))}</span>
           <span class="accent">${T.change}</span>
         </a>

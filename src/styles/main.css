@@ -413,3 +413,7 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 .tap-ring { position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; border-radius: 50%; border: 2px solid #f3d57e; pointer-events: none; opacity: 0; z-index: 5; }
 .tap-ring.go { animation: tap 0.7s var(--ease) both; }
 @keyframes tap { from { opacity: 1; scale: 0.3; } to { opacity: 0; scale: 1.6; } }
+
+/* real fabric photo swatches (e.g. zebra blinds), tinted by the colour via multiply */
+.fabric.photo { background-size: 140% auto; background-repeat: repeat; background-position: center; background-blend-mode: multiply; transition: background-color 0.7s var(--ease), transform 0.25s var(--ease), box-shadow 0.3s ease; }
+.p-hero .fabric.photo { background-size: 120% auto; }

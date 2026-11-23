@@ -50,6 +50,13 @@ npm run build:artifact  # claude.ai sahifasi uchun bitta skriptli versiya (dist-
 Sayt GitHub Pages'da: **https://sadullakhaitov.github.io/curtains/**. `.github/workflows/pages.yml` har bir push'da saytni
 qayta yigʻib, `gh-pages` branch'iga joylaydi (Settings → Pages → Source: `gh-pages` / root).
 
+## Haqiqiy mato suratidan parda (zebra va boshqalar)
+
+`Zebra Damask` mahsuloti kompaniyaning oʻz suratidan yasalgan: surat perspektivadan toʻgʻrilanadi, takrorlanuvchi
+qismi (4 ta chiziq davri) kesiladi, yorugʻligi tekislanadi va alfa kanalga har bir qatorning qalinligi yoziladi
+(qalin chiziq 255, shaffof ~140). Natija `public/images/zebra_damask.webp` — `products.ts` dagi `texture` maydoni.
+Boshqa mahsulotlar uchun ham shu yoʻl bilan tekstura tayyorlash mumkin: matoni toʻgʻridan-toʻgʻri, yaxshi yorugʻlikda suratga oling.
+
 ## Sozlash
 
 | Nima | Qayerda |

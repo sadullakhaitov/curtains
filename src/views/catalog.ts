@@ -5,7 +5,7 @@ import { bindFavButtons, productCard } from '../ui/card';
 import { $, bindHeader, bottomNav, esc, favs, html, langSwitch, themeButton } from '../ui/dom';
 import { icon } from '../ui/icons';
 
-const TYPES: (CurtainType | 'all')[] = ['all', 'classic', 'tulle', 'roller'];
+const TYPES: (CurtainType | 'all')[] = ['all', 'zebra', 'classic', 'tulle', 'roller'];
 
 const view: View = {
   render(params) {

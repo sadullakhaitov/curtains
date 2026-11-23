@@ -3,7 +3,7 @@ import { findProduct, formatPrice, typeLabel } from '../data/products';
 import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { clearResult, session } from '../store';
-import { fabricClass } from '../ui/card';
+import { fabricClass, fabricStyle } from '../ui/card';
 import { $, $$, bindHeader, esc, favs, html, langSwitch, telegramLink, themeButton, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
@@ -24,7 +24,7 @@ const view: View = {
     return html(`
     <main class="screen product">
       <div class="p-hero">
-        <div class="${fc} sway" data-fabric style="background-color:${c.hex}" role="img" aria-label="${esc(T.fabricOf(name, tx(c.name)))}"></div>
+        <div class="${fc} sway" data-fabric style="${fabricStyle(p, c.hex)}" role="img" aria-label="${esc(T.fabricOf(name, tx(c.name)))}"></div>
         ${p.image ? `<img class="p-photo" data-photo src="${p.image}" alt="${esc(name)} — ${T.inInterior}" decoding="async">` : ''}
         <span class="p-hero-shade" aria-hidden="true"></span>
       </div>
@@ -62,7 +62,7 @@ const view: View = {
             ${p.colors
               .map(
                 (col, i) =>
-                  `<button class="swatch ${fc} press${i === ci ? ' is-on' : ''}" role="radio" aria-checked="${i === ci}" aria-label="${esc(tx(col.name))}" data-ci="${i}" style="background-color:${col.hex}"></button>`,
+                  `<button class="swatch ${fc} press${i === ci ? ' is-on' : ''}" role="radio" aria-checked="${i === ci}" aria-label="${esc(tx(col.name))}" data-ci="${i}" style="${fabricStyle(p, col.hex)}"></button>`,
               )
               .join('')}
           </div>

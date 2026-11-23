@@ -4,7 +4,7 @@ import { findProduct, formatPrice, PRODUCTS } from '../data/products';
 import { t, tx } from '../i18n';
 import { navigate, type View } from '../router';
 import { session } from '../store';
-import { fabricClass } from '../ui/card';
+import { fabricClass, fabricStyle } from '../ui/card';
 import { $, $$, esc, html, telegramLink, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
@@ -44,7 +44,7 @@ const view: View = {
       <section class="sheet res-sheet rise d1">
         <div class="grabber" aria-hidden="true"></div>
         <div class="row gap-12 res-product">
-          <span class="dot xl ${fabricCls}" style="background-color:${c.hex}" aria-hidden="true"></span>
+          <span class="dot xl ${fabricCls}" style="${fabricStyle(p, c.hex)}" aria-hidden="true"></span>
           <div class="col grow">
             <b class="serif res-name">${esc(name)}</b>
             <small class="muted">${esc(cname)} · ${formatPrice(p)}</small>

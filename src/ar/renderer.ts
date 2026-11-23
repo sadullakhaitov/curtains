@@ -37,6 +37,9 @@ uniform float uDrop;
 uniform float uAspect;
 uniform float uAlpha;  // < 1 while the corners are being placed
 uniform sampler2D uOcc; // things standing in front of the curtain (furniture, plants)
+uniform sampler2D uTex; // photo texture of the real fabric (zebra blinds); alpha = opacity
+uniform float uHasTex;
+uniform float uTexAspect; // texture height / width
 uniform float uHasOcc;
 uniform int uType;
 
@@ -86,6 +89,57 @@ void main() {
   float thin = 0.08 + 0.42 * lum * lum;
   float inWin = cover(min(w.x, 1.0 - w.x), fw.x) * cover(min(w.y, 1.0 - w.y), fw.y);
   vec3 behind = photoLin * inWin;
+
+  if (uType == 3) {
+    // ---------- Zebra (day–night) blind from a real fabric photo ----------
+    float L = -0.04, R = 1.04;
+    float top = -0.012;
+    float bottom = mix(1.03, 0.09, uOpen);
+    float cx = cover(min(w.x - L, R - w.x), fw.x);
+    float cy = cover(min(w.y - top, bottom - w.y), fw.y);
+    // The photo spans the blind's width and repeats downwards; it is anchored to the bottom bar,
+    // so the pattern rolls up with the fabric.
+    float tileV = uTexAspect * (R - L) * max(uAspect, 0.05);
+    float s = clamp((w.x - L) / (R - L), 0.002, 0.998);
+    vec4 tex = texture2D(uTex, vec2(s, fract((w.y - bottom) / tileV + 64.0)));
+    vec3 alb = toLin(tex.rgb * uColor);
+    // Day–night: sheer bands let more daylight through by day, the layers close up by night.
+    float sheerA = mix(0.42, 0.94, uTulle);
+    float a = mix(sheerA, 1.0, smoothstep(0.62, 0.95, tex.a));
+    float shade = mix(1.02, 0.92, clamp(w.y, 0.0, 1.0)) * mix(1.0, 0.86, smoothstep(bottom - 0.03, bottom, w.y));
+    vec3 lit = alb * mix(vec3(1.0), uLight, 0.8) * shade + behind * alb * (1.0 - a) * 0.9;
+    lit *= 0.975 + 0.05 * hash(floor(px));
+    vec3 fab = toSrgb(lit);
+    col = mix(col, mix(col, fab, a), cx * cy * uHasTex);
+
+    // weighted bottom bar
+    float bb = cover(min(w.y - (bottom - 0.004), (bottom + 0.016) - w.y), fw.y) * cx;
+    float bt = clamp((w.y - (bottom - 0.004)) / 0.02, 0.0, 1.0);
+    col = mix(col, mix(vec3(0.93), vec3(0.66), bt) * clamp(uLight, 0.45, 1.15), bb);
+
+    // cassette wrapped in the same fabric, with rounded shading and white end caps
+    float ct = -0.085, cb = top + 0.004;
+    float ccov = cover(min(w.y - ct, cb - w.y), fw.y) * cover(min(w.x - (L - 0.012), (R + 0.012) - w.x), fw.x);
+    float ctt = clamp((w.y - ct) / (cb - ct), 0.0, 1.0);
+    vec4 ctex = texture2D(uTex, vec2(s, 0.08 + ctt * 0.25));
+    float round_ = 0.62 + 0.45 * sin(3.14159 * (0.15 + 0.8 * ctt));
+    vec3 cas = toSrgb(toLin(ctex.rgb * uColor) * round_ * mix(vec3(1.0), uLight, 0.8)) + vec3(0.12) * exp(-pow((ctt - 0.25) * 7.0, 2.0));
+    col = mix(col, cas, ccov * uHasTex);
+    float cap = ccov * (1.0 - cover(min(w.x - (L + 0.004), (R - 0.004) - w.x), fw.x));
+    col = mix(col, mix(vec3(0.96), vec3(0.78), ctt) * clamp(uLight, 0.45, 1.15), cap);
+
+    // bead chain on the right
+    float chx = (w.x - (R + 0.02)) * uAspect;
+    float chain = step(ct, w.y) * step(w.y, bottom + 0.22);
+    float bead = 0.5 + 0.5 * cos(w.y * 260.0);
+    float chCov = cover(0.0045 * (0.6 + 0.4 * bead) - abs(chx), fw.x * uAspect) * chain;
+    col = mix(col, mix(vec3(0.55), vec3(0.95), bead) * clamp(uLight, 0.45, 1.15), chCov);
+
+    float occ3 = uHasOcc > 0.5 ? smoothstep(0.35, 0.65, texture2D(uOcc, px / uSize).r) : 0.0;
+    col = mix(col, photo, occ3);
+    gl_FragColor = vec4(mix(photo, clamp(col, 0.0, 1.0), uAlpha), 1.0);
+    return;
+  }
 
   if (uType == 2) {
     // ---------- Roller blind ----------
@@ -202,6 +256,9 @@ export class CurtainRenderer {
   private foldTex: WebGLTexture;
   private occTex: WebGLTexture;
   private hasOcc = false;
+  private fabTex: WebGLTexture;
+  private texSrc: HTMLImageElement | null = null;
+  private texAspect = 1;
   private u: Record<string, WebGLUniformLocation | null> = {};
   private width = 1;
   private height = 1;
@@ -240,7 +297,7 @@ export class CurtainRenderer {
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-    for (const n of ['uPhoto', 'uFold', 'uHinv', 'uSize', 'uColor', 'uLight', 'uOpen', 'uTulle', 'uDrop', 'uAspect', 'uAlpha', 'uType', 'uOcc', 'uHasOcc']) {
+    for (const n of ['uPhoto', 'uFold', 'uHinv', 'uSize', 'uColor', 'uLight', 'uOpen', 'uTulle', 'uDrop', 'uAspect', 'uAlpha', 'uType', 'uOcc', 'uHasOcc', 'uTex', 'uHasTex', 'uTexAspect']) {
       this.u[n] = gl.getUniformLocation(prog, n);
     }
     this.photoTex = this.texture(0);
@@ -248,9 +305,12 @@ export class CurtainRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, fold);
     this.occTex = this.texture(2);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 1, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array([0]));
+    this.fabTex = this.texture(3);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 200, 200, 255]));
     gl.uniform1i(this.u.uPhoto, 0);
     gl.uniform1i(this.u.uFold, 1);
     gl.uniform1i(this.u.uOcc, 2);
+    gl.uniform1i(this.u.uTex, 3);
   }
 
   private texture(unit: number) {
@@ -288,6 +348,18 @@ export class CurtainRenderer {
       for (let ch = 0; ch < 3; ch++) data[i * 3 + ch] = Math.pow(d[i * 4 + ch] / 255, 2.2);
     this.probe = { data, w: pw, h: ph };
     this.lightKey = '';
+  }
+
+  /** Real fabric photo for photo-textured products (zebra blinds); null when the product has none. */
+  setFabricTexture(img: HTMLImageElement | null) {
+    if (img === this.texSrc) return;
+    this.texSrc = img;
+    if (!img) return;
+    const gl = this.gl;
+    this.texAspect = img.naturalHeight / img.naturalWidth;
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.fabTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
   }
 
   /**
@@ -382,19 +454,42 @@ export class CurtainRenderer {
     gl.uniform1f(this.u.uDrop, p.drop);
     gl.uniform1f(this.u.uAlpha, p.alpha ?? 1);
     gl.uniform1f(this.u.uHasOcc, this.hasOcc ? 1 : 0);
+    gl.uniform1f(this.u.uHasTex, this.texSrc ? 1 : 0);
+    gl.uniform1f(this.u.uTexAspect, this.texAspect);
     gl.uniform3fv(this.u.uLight, this.roomLight(corners));
     const wpx = (Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y) + Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y)) / 2;
     const hpx = (Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y) + Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y)) / 2;
     gl.uniform1f(this.u.uAspect, wpx / Math.max(hpx, 1));
-    gl.uniform1i(this.u.uType, p.type === 'classic' ? 0 : p.type === 'tulle' ? 1 : 2);
+    gl.uniform1i(this.u.uType, p.type === 'classic' ? 0 : p.type === 'tulle' ? 1 : p.type === 'zebra' ? 3 : 2);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.photoTex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.foldTex);
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, this.occTex);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.fabTex);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
+}
+
+const textures = new Map<string, Promise<HTMLImageElement>>();
+/** A product's fabric photo, loaded once and cached. */
+export function loadTexture(src: string): Promise<HTMLImageElement> {
+  let p = textures.get(src);
+  if (!p) {
+    p = new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        textures.delete(src);
+        reject(new Error('texture'));
+      };
+      img.src = src;
+    });
+    textures.set(src, p);
+  }
+  return p;
 }
 
 let foldImage: Promise<HTMLImageElement> | null = null;

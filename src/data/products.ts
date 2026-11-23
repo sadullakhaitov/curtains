@@ -1,6 +1,6 @@
 import { t, tx, type L } from '../i18n';
 
-export type CurtainType = 'classic' | 'tulle' | 'roller';
+export type CurtainType = 'classic' | 'tulle' | 'roller' | 'zebra';
 
 export interface CurtainColor {
   name: L;
@@ -16,6 +16,11 @@ export interface Product {
   description: L;
   /** Interior photo for the card. Without it the card shows the tinted fabric itself. */
   image?: string;
+  /**
+   * Photo texture of the real fabric (flat, front-on, tiling vertically; alpha = opacity:
+   * opaque bands 255, sheer bands lower). Used by the renderer and for swatches.
+   */
+  texture?: string;
   colors: CurtainColor[];
   /** Price in so'm per metre. `null` shows "price on request". */
   price: number | null;
@@ -26,6 +31,21 @@ const img = (name: string) => `images/${name}`;
 const c = (uz: string, ru: string, hex: string): CurtainColor => ({ name: { uz, ru }, hex });
 
 export const PRODUCTS: Product[] = [
+  {
+    id: 'zebra-damask',
+    name: { uz: 'Zebra Damask', ru: 'Зебра Дамаск' },
+    type: 'zebra',
+    fabric: { uz: 'Kun-tun', ru: 'День-ночь' },
+    description: {
+      uz: 'Ikki qavatli kun-tun rulonli parda: shaffof va qalin chiziqlar siljib, yorugʻlikni xohlagancha boshqaradi. Damask naqsh.',
+      ru: 'Двухслойная рулонная штора «день-ночь»: прозрачные и плотные полосы сдвигаются и регулируют свет. Узор дамаск.',
+    },
+    image: img('p_zebra.webp'),
+    texture: img('zebra_damask.webp'),
+    colors: [c('Kumush-qora', 'Серебро с чёрным', '#FFFFFF'), c('Krem', 'Кремовый', '#F7E6C4'), c('Moviy', 'Голубой', '#D3E0F2')],
+    price: null,
+    popular: true,
+  },
   {
     id: 'barxat',
     name: { uz: 'Barxat', ru: 'Бархат' },

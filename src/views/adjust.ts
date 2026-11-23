@@ -3,12 +3,12 @@ import { findWindow, inFront, refineMask, windowAt, type WindowFind } from '../a
 import { frontObjects, type Mask } from '../ar/vision';
 import { exportImage } from '../ar/export';
 import { defaultCorners, isConvex, type Point } from '../ar/homography';
-import { CurtainRenderer, loadFold } from '../ar/renderer';
+import { CurtainRenderer, loadFold, loadTexture } from '../ar/renderer';
 import { findProduct, PRODUCTS, type Product } from '../data/products';
 import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { session } from '../store';
-import { fabricClass } from '../ui/card';
+import { fabricClass, fabricStyle } from '../ui/card';
 import { $, $$, esc, html, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
@@ -22,9 +22,10 @@ function controlsFor(p: Product) {
       <input id="s-${key}" type="range" min="0" max="100" value="${Math.round(value * 100)}" data-s="${key}">
     </div>`;
   return [
-    p.type !== 'tulle' ? slider('open', p.type === 'roller' ? t().lift : t().open, session.open) : '',
+    p.type !== 'tulle' ? slider('open', p.type === 'roller' || p.type === 'zebra' ? t().lift : t().open, session.open) : '',
     p.type === 'classic' ? slider('tulle', t().tulle, session.tulle) : '',
-    p.type !== 'roller' ? slider('drop', t().drop, session.drop) : '',
+    p.type === 'zebra' ? slider('tulle', t().dayNight, session.tulle) : '',
+    p.type !== 'roller' && p.type !== 'zebra' ? slider('drop', t().drop, session.drop) : '',
   ].join('');
 }
 
@@ -32,7 +33,7 @@ function colorsFor(p: Product) {
   return p.colors
     .map(
       (c, i) =>
-        `<button class="swatch sm ${fabricCls(p)} press${i === session.colorIndex ? ' is-on' : ''}" role="radio" aria-checked="${i === session.colorIndex}" aria-label="${esc(tx(c.name))}" data-ci="${i}" style="background-color:${c.hex}"></button>`,
+        `<button class="swatch sm ${fabricCls(p)} press${i === session.colorIndex ? ' is-on' : ''}" role="radio" aria-checked="${i === session.colorIndex}" aria-label="${esc(tx(c.name))}" data-ci="${i}" style="${fabricStyle(p, c.hex)}"></button>`,
     )
     .join('');
 }
@@ -76,7 +77,7 @@ const view: View = {
           ${PRODUCTS.map(
             (x) => `
             <button class="prod-pill press${x.id === p.id ? ' is-on' : ''}" role="radio" aria-checked="${x.id === p.id}" data-pid="${x.id}">
-              <span class="dot ${fabricCls(x)}" style="background-color:${x.colors[0].hex}"></span>${esc(tx(x.name))}
+              <span class="dot ${fabricCls(x)}" style="${fabricStyle(x, x.colors[0].hex)}"></span>${esc(tx(x.name))}
             </button>`,
           ).join('')}
         </div>
@@ -125,6 +126,22 @@ const view: View = {
       if (!raf) raf = requestAnimationFrame(draw);
     };
 
+    // Photo-textured products (zebra blinds) need their fabric photo on the GPU before drawing.
+    const useTexture = () => {
+      const p = product();
+      if (!p.texture) {
+        renderer?.setFabricTexture(null);
+        return;
+      }
+      loadTexture(p.texture)
+        .then((img) => {
+          if (product().texture !== p.texture) return;
+          renderer?.setFabricTexture(img);
+          schedule();
+        })
+        .catch(() => {});
+    };
+
     const placeHandles = () => {
       handles.forEach((h, i) => (h.style.transform = `translate(${corners[i].x * scale}px, ${corners[i].y * scale}px)`));
       poly.setAttribute('points', corners.map((c) => `${c.x * scale},${c.y * scale}`).join(' '));
@@ -151,6 +168,7 @@ const view: View = {
       .then((fold) => {
         renderer = new CurtainRenderer(canvas, fold);
         renderer.setPhoto(photo);
+        useTexture();
         layout();
         draw();
         canvas.classList.add('ready');
@@ -415,6 +433,7 @@ const view: View = {
         $(el, '[data-colors]').innerHTML = colorsFor(p);
         $(el, '[data-cname]').textContent = tx(p.colors[0].name);
         $(el, '[data-sliders]').innerHTML = controlsFor(p);
+        useTexture();
         bindColors();
         bindSliders();
         b.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
