@@ -11,6 +11,8 @@ ulashish yoki Telegram orqali buyurtma berish mumkin.
   hisoblanadi — rasm hech qayerga yuborilmaydi.
 - **Kamera** — orqa kamera, chiroq (qoʻllasa), kamerani almashtirish; kamera boʻlmasa galereyadan yuklash yoki
   namuna xona rasmida sinash.
+- **Derazani avtomatik topish** — suratdan keyin nuqtalar oʻzi deraza burchaklariga boradi (`src/ar/detect.ts`: yorugʻ
+  soha + Hough toʻgʻri chiziqlari, sunʼiy intellektsiz, ~30 ms). Ishonchli topilmasa, nuqtalar odatdagi joyida qoladi.
 - **Moslash** — 4 ta burchakni barmoq bilan surish (kattalashtiruvchi lupa bilan), pardani ochish/yopish, tyul zichligi,
   uzunlik, boshqa parda va ranglarga shu rasmning oʻzida oʻtish.
 - **Natija** — "Oldin / Keyin" taqqoslash, NewMoon belgisi bilan JPEG; telefonda "Saqlash" ulashish oynasini ochadi
@@ -63,6 +65,7 @@ src/
   theme.ts           kun/tun rejimi
   store.ts           joriy sinov holati (rasm, burchaklar, sozlamalar)
   ar/homography.ts   perspektiva matematikasi (kvadrat → toʻrtburchak)
+  ar/detect.ts       derazani avtomatik topish
   ar/renderer.ts     WebGL shader: parda, tyul, karniz, rulonli parda
   ar/export.ts       JPEG yaratish, saqlash, ulashish
   views/             bosh sahifa, katalog, parda, kamera, moslash, natija, aloqa

@@ -401,3 +401,7 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 .camera .sheet { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg2); }
 @keyframes fade-in { from { opacity: 0; } }
 .camera.screen-enter { animation: fade-in 0.35s ease backwards; }
+
+/* auto-detect button while analysing */
+@keyframes wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+[data-auto].spinning svg { animation: wiggle 0.5s ease-in-out infinite; color: #f3d57e; }

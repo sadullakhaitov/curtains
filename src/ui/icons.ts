@@ -26,6 +26,7 @@ export const icon = {
   arrow: (s?: number) => svg('<path d="M5 12h14M13 6l6 6-6 6"/>', s),
   sparkle: (s = 14) =>
     `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>`,
+  wand: (s?: number) => svg('<path d="M4 20l11-11"/><path d="M15 9l2-2"/><path d="M14 4v2M20 10h-2M18.5 5.5l-1.4 1.4M10 4.5l.6 1.2M19.5 14l-1.2-.6"/>', s),
   flash: (s?: number) => svg('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', s),
   move: (s?: number) => svg('<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>', s),
   reset: (s?: number) => svg('<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/>', s),

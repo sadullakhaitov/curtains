@@ -1,3 +1,4 @@
+import { detectWindow } from '../ar/detect';
 import { exportImage } from '../ar/export';
 import { defaultCorners, isConvex, type Point } from '../ar/homography';
 import { CurtainRenderer, loadFold } from '../ar/renderer';
@@ -60,7 +61,7 @@ const view: View = {
       <header class="topbar overlay rise">
         <button class="gp icon-btn press" data-back aria-label="${T.retake}">${icon.back(20)}</button>
         <div class="row gap-8">
-          <button class="gp icon-btn press" data-reset aria-label="${T.resetCorners}">${icon.reset(19)}</button>
+          <button class="gp icon-btn press" data-auto aria-label="${T.autoDetect}" title="${T.autoDetect}">${icon.wand(20)}</button>
           <button class="gp chip-lg press" data-toggle aria-pressed="false">${T.preview}</button>
         </div>
         <button class="gold btn-sm press" data-done>${T.done}</button>
@@ -96,6 +97,8 @@ const view: View = {
     const poly = $<SVGPolygonElement>(el, '[data-poly]');
     const loupe = $(el, '[data-loupe]');
     const loupeCtx = $<HTMLCanvasElement>(loupe, 'canvas').getContext('2d')!;
+    // A new photo has no corners yet: start from the default and let the detector look for the window.
+    const needsDetect = !session.corners;
     if (!session.corners) session.corners = defaultCorners(photo.width, photo.height);
     const corners = session.corners;
     let renderer: CurtainRenderer | null = null;
@@ -145,12 +148,52 @@ const view: View = {
         layout();
         draw();
         canvas.classList.add('ready');
+        if (needsDetect) setTimeout(() => autoDetect(false), 300);
       })
       .catch((e) => {
         const err = $(el, '[data-error]');
         err.hidden = false;
         err.innerHTML = `<b>${t().drawFail}</b><small>${esc(String(e.message || e))}. ${t().drawFailHint}</small>`;
       });
+
+    // ---- Automatic window detection, with the handles gliding to the result ----
+    let anim = 0;
+    const animateTo = (target: Point[]) => {
+      cancelAnimationFrame(anim);
+      const from = corners.map((c) => ({ ...c }));
+      const t0 = performance.now();
+      const dur = matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 520;
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / dur);
+        const e = 1 - Math.pow(1 - p, 3);
+        for (let i = 0; i < 4; i++) corners[i] = { x: from[i].x + (target[i].x - from[i].x) * e, y: from[i].y + (target[i].y - from[i].y) * e };
+        placeHandles();
+        draw();
+        if (p < 1) anim = requestAnimationFrame(step);
+      };
+      anim = requestAnimationFrame(step);
+    };
+    const autoDetect = (manual: boolean) => {
+      const btn = $(el, '[data-auto]');
+      btn.classList.add('spinning');
+      // Let the spinner paint before the (short) synchronous analysis.
+      setTimeout(() => {
+        let found: Point[] | null = null;
+        try {
+          found = detectWindow(photo)?.corners ?? null;
+        } catch {
+          found = null;
+        }
+        btn.classList.remove('spinning');
+        if (found) {
+          animateTo(found);
+          toast(t().autoFound, 'ok', 2800);
+        } else {
+          if (manual) animateTo(defaultCorners(photo.width, photo.height));
+          toast(t().autoNotFound, 'info', 3200);
+        }
+      }, 30);
+    };
 
     // ---- Dragging corners (pointer events cover mouse, touch and pen) ----
     let active = -1;
@@ -187,6 +230,7 @@ const view: View = {
     handles.forEach((h, i) => {
       h.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        cancelAnimationFrame(anim);
         active = i;
         h.setPointerCapture(e.pointerId);
         const p = toPhoto(e.clientX, e.clientY);
@@ -278,12 +322,7 @@ const view: View = {
       toggle.textContent = hidden ? t().edit : t().preview;
     });
 
-    $(el, '[data-reset]').addEventListener('click', () => {
-      const d = defaultCorners(photo.width, photo.height);
-      d.forEach((c, i) => (corners[i] = c));
-      placeHandles();
-      schedule();
-    });
+    $(el, '[data-auto]').addEventListener('click', () => autoDetect(true));
 
     $(el, '[data-back]').addEventListener('click', () => back('/try'));
 
@@ -310,6 +349,7 @@ const view: View = {
     });
 
     return () => {
+      cancelAnimationFrame(anim);
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
