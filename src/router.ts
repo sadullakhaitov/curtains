@@ -5,6 +5,8 @@ export interface View {
   render(params: Record<string, string>): HTMLElement | Promise<HTMLElement>;
   /** Runs after the screen is in the document; returns a cleanup for when it leaves. */
   mount?(el: HTMLElement, params: Record<string, string>): Cleanup;
+  /** false = never animate into or out of this screen with a View Transition (e.g. live camera). */
+  transition?: boolean;
 }
 
 interface Route {
@@ -16,6 +18,7 @@ interface Route {
 const routes: Route[] = [];
 let root: HTMLElement;
 let cleanup: Cleanup;
+let currentView: View | null = null;
 let token = 0;
 let rendered = '';
 let lastIndex = 0;
@@ -86,11 +89,13 @@ async function resolve() {
     root.replaceChildren(el);
     window.scrollTo(0, keepScroll);
     cleanup = view.mount?.(el, params);
+    currentView = view;
   };
 
   const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (doc.startViewTransition && !reduce && root.childElementCount) {
+  const allowVT = view.transition !== false && currentView?.transition !== false;
+  if (doc.startViewTransition && !reduce && allowVT && root.childElementCount) {
     document.documentElement.dataset.nav = dir;
     doc.startViewTransition(swap);
   } else {

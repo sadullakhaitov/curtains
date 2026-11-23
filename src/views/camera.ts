@@ -61,6 +61,8 @@ async function loadSample() {
 }
 
 const view: View = {
+  // A live <video> must not be snapshotted by a page transition (iOS shows it black afterwards).
+  transition: false,
   render(params) {
     if (params.id && findProduct(params.id)) {
       if (session.productId !== params.id) session.colorIndex = 0;
@@ -74,7 +76,7 @@ const view: View = {
     return html(`
     <main class="screen camera">
       <div class="viewfinder">
-        <video playsinline muted autoplay aria-label="${T.camView}"></video>
+        <div class="video-slot" data-video-slot data-label="${T.camView}"></div>
         <div class="cam-off" data-off hidden>
           <span class="cam-off-icon glass">${icon.camera(30)}</span>
           <b>${T.camOff}</b>
@@ -90,7 +92,7 @@ const view: View = {
           <span class="ellipsis">${esc(tx(p.name))}</span>
           <span class="accent">${T.change}</span>
         </a>
-        <button class="gp icon-btn press" data-torch aria-label="${T.torch}" hidden>${icon.sparkle(18)}</button>
+        <button class="gp icon-btn press" data-torch aria-label="${T.torch}" hidden>${icon.flash(20)}</button>
         <span class="icon-btn" data-torch-spacer aria-hidden="true"></span>
       </header>
 
@@ -112,7 +114,19 @@ const view: View = {
   },
 
   mount(el) {
-    const video = $<HTMLVideoElement>(el, 'video');
+    // Created in the live document (not inside a <template>) with every inline-playback flag set
+    // before a stream is attached — iOS WebKit otherwise decodes frames but paints the element black.
+    const video = document.createElement('video');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
+    video.setAttribute('autoplay', '');
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.setAttribute('aria-label', $(el, '[data-video-slot]').dataset.label || '');
+    $(el, '[data-video-slot]').replaceWith(video);
+    video.addEventListener('loadedmetadata', () => video.play().catch(() => {}));
     const off = $(el, '[data-off]');
     const shot = $<HTMLButtonElement>(el, '[data-shot]');
     const busy = $(el, '[data-busy]');
@@ -124,6 +138,7 @@ const view: View = {
     const stop = () => {
       stream?.getTracks().forEach((t) => t.stop());
       stream = null;
+      video.srcObject = null;
     };
 
     const showOff = (reason?: string) => {
