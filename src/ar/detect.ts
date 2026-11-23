@@ -29,6 +29,10 @@ export interface Line {
 export interface Detection {
   corners: Point[];
   score: number;
+  /** Share of the quad covered by the region (1 = a perfect four-sided shape). */
+  fill: number;
+  /** How many of the four sides snapped to a real straight edge. */
+  snapped: number;
 }
 
 /** Optional debug sink (used by tests). */
@@ -112,19 +116,38 @@ function houghPeaks(acc: Float32Array, slopes: number[], size: number, n: number
   return out;
 }
 
-export function detectWindow(src: HTMLCanvasElement, debug?: DetectDebug): Detection | null {
+/** A 0/1 mask of the window from a segmentation model, at any resolution. */
+export interface WindowMask {
+  data: Uint8Array;
+  w: number;
+  h: number;
+}
+
+/**
+ * Without `mask`, the window is found from light (see above). With a `mask` from a segmentation
+ * model, that mask is the region and only the frame snapping and sanity checks run.
+ */
+export function detectWindow(src: HTMLCanvasElement, debug?: DetectDebug, opts?: { mask?: WindowMask }): Detection | null {
   const { L: raw, w, h, k } = luminance(src, src.width, src.height);
   const L = blur3(raw, w, h);
   const N = w * h;
   const cx = w / 2, cy = h / 2;
 
-  // ---------- 1. bright regions ----------
-  const sorted = Float32Array.from(L).sort();
-  const p85 = sorted[Math.floor(N * 0.85)];
-  const median = sorted[Math.floor(N * 0.5)];
-  if (p85 - median < 0.035) return null; // flat, evenly lit photo: nothing stands out
+  // ---------- 1. candidate regions: model mask, or the brightest areas ----------
+  const fromModel = !!opts?.mask;
   let mask = new Uint8Array(N);
-  for (let i = 0; i < N; i++) mask[i] = L[i] >= p85 ? 1 : 0;
+  if (opts?.mask) {
+    const m = opts.mask;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++)
+        mask[y * w + x] = m.data[Math.min(m.h - 1, Math.floor(((y + 0.5) / h) * m.h)) * m.w + Math.min(m.w - 1, Math.floor(((x + 0.5) / w) * m.w))];
+  } else {
+    const sorted = Float32Array.from(L).sort();
+    const p85 = sorted[Math.floor(N * 0.85)];
+    const median = sorted[Math.floor(N * 0.5)];
+    if (p85 - median < 0.035) return null; // flat, evenly lit photo: nothing stands out
+    for (let i = 0; i < N; i++) mask[i] = L[i] >= p85 ? 1 : 0;
+  }
   const r = Math.max(2, Math.round(Math.min(w, h) * 0.02));
   mask = morph(morph(mask, w, h, r, true), w, h, r, false);
 
@@ -159,7 +182,10 @@ export function detectWindow(src: HTMLCanvasElement, debug?: DetectDebug): Detec
   }
 
   let best: { reg: Region; score: number } | null = null;
-  for (const reg of regions) {
+  if (fromModel) {
+    for (const reg of regions) if (!best || reg.area > best.reg.area) best = { reg, score: 1 };
+    if (best && best.reg.area < N * 0.01) best = null;
+  } else for (const reg of regions) {
     const a = reg.area / N;
     const bw = reg.x1 - reg.x0 + 1, bh = reg.y1 - reg.y0 + 1;
     if (a < 0.015 || bw < w * 0.08 || bh < h * 0.1) continue;
@@ -175,7 +201,7 @@ export function detectWindow(src: HTMLCanvasElement, debug?: DetectDebug): Detec
   // A window split by mullions shows up as several bright panes side by side: merge panes that share
   // most of their height with the chosen one and sit close to it.
   const R: Region = { ...best.reg, px: best.reg.px.slice() };
-  let merged = true;
+  let merged = !fromModel;
   const done = new Set<Region>([best.reg]);
   while (merged) {
     merged = false;
@@ -349,15 +375,62 @@ export function detectWindow(src: HTMLCanvasElement, debug?: DetectDebug): Detec
       if (mask[yi * w + xi]) hit++;
     }
   if (!tot || hit / tot < 0.4) return null;
+  const fill = hit / tot;
 
   // The bright area is the glass; push the corners out a little so the curtain also covers the frame.
   const mx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4, my = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
-  q = q.map((p) => ({ x: mx + (p.x - mx) * 1.04, y: my + (p.y - my) * 1.04 }));
+  const grow = fromModel ? 1.02 : 1.04;
+  q = q.map((p) => ({ x: mx + (p.x - mx) * grow, y: my + (p.y - my) * grow }));
 
   const score = best.score * (1 + 0.15 * snapped);
-  if (score < 0.33) return null; // weak evidence: better to leave the default corners
+  if (!fromModel && score < 0.33) return null; // weak evidence: better to leave the default corners
   return {
     corners: q.map((p) => ({ x: Math.max(0, Math.min(src.width, p.x / k)), y: Math.max(0, Math.min(src.height, p.y / k)) })),
     score,
+    fill,
+    snapped,
   };
+}
+
+/**
+ * Centres (photo pixels) of the most window-like bright areas, best first. Used as starting points
+ * for the segmentation model when the light-based detector alone is not sure.
+ */
+export function brightSpots(src: HTMLCanvasElement, n = 3): Point[] {
+  const { L: raw, w, h, k } = luminance(src, src.width, src.height);
+  const L = blur3(raw, w, h);
+  const N = w * h;
+  const sorted = Float32Array.from(L).sort();
+  const p85 = sorted[Math.floor(N * 0.85)];
+  let mask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) mask[i] = L[i] >= p85 ? 1 : 0;
+  const r = Math.max(2, Math.round(Math.min(w, h) * 0.02));
+  mask = morph(morph(mask, w, h, r, true), w, h, r, false);
+  const seen = new Uint8Array(N);
+  const stack = new Int32Array(N);
+  const spots: { p: Point; s: number }[] = [];
+  for (let i = 0; i < N; i++) {
+    if (!mask[i] || seen[i]) continue;
+    let sp = 0, area = 0, sx = 0, sy = 0, sl = 0, x0 = w, x1 = 0, y0 = h, y1 = 0;
+    stack[sp++] = i;
+    seen[i] = 1;
+    while (sp) {
+      const j = stack[--sp];
+      const x = j % w, y = (j - x) / w;
+      area++, (sx += x), (sy += y), (sl += L[j]);
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+      for (const nb of [x > 0 ? j - 1 : -1, x < w - 1 ? j + 1 : -1, y > 0 ? j - w : -1, y < h - 1 ? j + w : -1])
+        if (nb >= 0 && mask[nb] && !seen[nb]) (seen[nb] = 1), (stack[sp++] = nb);
+    }
+    const a = area / N;
+    if (a < 0.008) continue;
+    const fill = area / ((x1 - x0 + 1) * (y1 - y0 + 1));
+    const yc = sy / area / h;
+    const pos = yc < 0.5 ? 1 : Math.max(0.1, 1 - (yc - 0.5) / 0.3);
+    spots.push({ p: { x: sx / area / k, y: sy / area / k }, s: Math.sqrt(a) * (0.35 + fill) * pos * (sl / area) });
+  }
+  return spots.sort((a, b) => b.s - a.s).slice(0, n).map((x) => x.p);
 }

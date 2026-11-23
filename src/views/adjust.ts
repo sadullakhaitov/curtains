@@ -1,4 +1,6 @@
 import { detectWindow } from '../ar/detect';
+import { findWindow, inFront, refineMask, windowAt, type WindowFind } from '../ar/smart';
+import { frontObjects, type Mask } from '../ar/vision';
 import { exportImage } from '../ar/export';
 import { defaultCorners, isConvex, type Point } from '../ar/homography';
 import { CurtainRenderer, loadFold } from '../ar/renderer';
@@ -54,7 +56,8 @@ const view: View = {
             .join('')}
           <div class="loupe" data-loupe hidden><canvas width="240" height="240"></canvas><i></i></div>
         </div>
-        <div class="hint stage-hint"><span class="gp chip">${icon.move(15)} ${T.moveHint}</span></div>
+        <div class="hint stage-hint"><span class="gp chip" data-status>${icon.move(15)} <span data-status-text>${T.tapHint}</span></span></div>
+        <span class="tap-ring" data-tap hidden></span>
         <div class="stage-error glass" data-error hidden></div>
       </div>
 
@@ -151,6 +154,7 @@ const view: View = {
         layout();
         draw();
         canvas.classList.add('ready');
+        applyOcclusion();
         if (needsDetect) setTimeout(() => autoDetect(false), 300);
       })
       .catch((e) => {
@@ -187,32 +191,112 @@ const view: View = {
         placeHandles();
         draw();
         if (p < 1) anim = requestAnimationFrame(step);
+        else applyOcclusion();
       };
       anim = requestAnimationFrame(step);
       alpha = SEE_THROUGH;
       fadeTo(1, dur + 250);
     };
-    const autoDetect = (manual: boolean) => {
+    // ---- Status chip under the photo ----
+    const statusEl = $(el, '[data-status]');
+    const statusText = $(el, '[data-status-text]');
+    const setStatus = (text: string, busy: boolean) => {
+      statusText.textContent = text;
+      statusEl.classList.toggle('busy', busy);
+    };
+
+    // ---- Things standing in front of the curtain (furniture, plants) ----
+    let front: Mask | null = null;
+    const applyOcclusion = () => {
+      if (!renderer) return;
+      const near = front ? inFront(front, corners, photo.width, photo.height) : null;
+      renderer.setOcclusion(near ? refineMask(photo, near) : null, true);
+      schedule();
+    };
+    let alive = true;
+    frontObjects(photo)
+      .then((m) => {
+        if (!alive) return;
+        front = m;
+        applyOcclusion();
+      })
+      .catch(() => {});
+
+    // ---- Smart window detection ----
+    let current: WindowFind | null = null;
+    let busy = false;
+    const autoDetect = async (manual: boolean) => {
+      if (busy) return;
+      busy = true;
       const btn = $(el, '[data-auto]');
       btn.classList.add('spinning');
-      // Let the spinner paint before the (short) synchronous analysis.
-      setTimeout(() => {
-        let found: Point[] | null = null;
-        try {
-          found = detectWindow(photo)?.corners ?? null;
-        } catch {
-          found = null;
-        }
-        btn.classList.remove('spinning');
-        if (found) {
-          animateTo(found);
-          toast(t().autoFound, 'ok', 2800);
-        } else {
-          if (manual) animateTo(defaultCorners(photo.width, photo.height));
-          toast(t().autoNotFound, 'info', 3200);
-        }
-      }, 30);
+      // 1. Instant light-based guess, so the handles move right away.
+      let guess: Point[] | null = null;
+      try {
+        guess = detectWindow(photo)?.corners ?? null;
+      } catch {
+        guess = null;
+      }
+      if (guess) animateTo(guess);
+      // 2. The segmentation model refines it (or finds the window the guess missed).
+      setStatus(t().aiLoading, true);
+      let found: WindowFind | null = null;
+      let modelOk = true;
+      try {
+        const t0 = setTimeout(() => setStatus(t().aiAnalyzing, true), 1200);
+        found = await findWindow(photo, guess);
+        clearTimeout(t0);
+      } catch {
+        modelOk = false;
+      }
+      if (!alive) return;
+      btn.classList.remove('spinning');
+      busy = false;
+      setStatus(t().tapHint, false);
+      if (found) {
+        current = found;
+        animateTo(found.corners);
+        toast(t().autoFound, 'ok', 2800);
+      } else if (guess && (!modelOk || !manual)) {
+        toast(t().autoFound, 'ok', 2800);
+      } else {
+        if (manual) animateTo(defaultCorners(photo.width, photo.height));
+        toast(t().autoNotFound, 'info', 3600);
+      }
     };
+
+    // ---- Tap on the window: select it (or add the next pane) ----
+    const tapRing = $(el, '[data-tap]');
+    stage.addEventListener('click', async (e) => {
+      if (busy || el.classList.contains('preview')) return;
+      if ((e.target as Element).closest('.handle, button, a')) return;
+      const r = handlesBox.getBoundingClientRect();
+      const p = { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+      if (p.x < 0 || p.y < 0 || p.x > photo.width || p.y > photo.height) return;
+      const sr = stage.getBoundingClientRect();
+      tapRing.style.transform = `translate(${e.clientX - sr.left}px, ${e.clientY - sr.top}px)`;
+      tapRing.hidden = false;
+      tapRing.classList.remove('go');
+      void tapRing.offsetWidth;
+      tapRing.classList.add('go');
+      busy = true;
+      setStatus(t().aiAnalyzing, true);
+      let found: WindowFind | null = null;
+      try {
+        found = await windowAt(photo, p, current);
+      } catch {
+        found = null;
+      }
+      if (!alive) return;
+      busy = false;
+      setStatus(t().tapHint, false);
+      if (found) {
+        current = found;
+        animateTo(found.corners);
+      } else {
+        toast(t().tapNotFound, 'info', 2600);
+      }
+    });
 
     // ---- Dragging corners (pointer events cover mouse, touch and pen) ----
     let active = -1;
@@ -269,7 +353,9 @@ const view: View = {
       const end = () => {
         if (active !== i) return;
         active = -1;
+        current = null;
         fadeTo(1, 120);
+        applyOcclusion();
         el.classList.remove('dragging');
         h.classList.remove('is-active');
         loupe.hidden = true;
@@ -372,6 +458,7 @@ const view: View = {
     });
 
     return () => {
+      alive = false;
       cancelAnimationFrame(anim);
       cancelAnimationFrame(alphaAnim);
       ro.disconnect();

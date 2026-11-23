@@ -405,3 +405,11 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 /* auto-detect button while analysing */
 @keyframes wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
 [data-auto].spinning svg { animation: wiggle 0.5s ease-in-out infinite; color: #f3d57e; }
+
+/* status chip spinner + tap feedback on the adjust screen */
+.stage-hint .chip.busy svg { display: none; }
+.stage-hint .chip.busy::after { content: ''; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #f3d57e; animation: spin 0.8s linear infinite; order: -1; }
+.stage-hint .chip { gap: 8px; }
+.tap-ring { position: absolute; left: -24px; top: -24px; width: 48px; height: 48px; border-radius: 50%; border: 2px solid #f3d57e; pointer-events: none; opacity: 0; z-index: 5; }
+.tap-ring.go { animation: tap 0.7s var(--ease) both; }
+@keyframes tap { from { opacity: 1; scale: 0.3; } to { opacity: 0; scale: 1.6; } }

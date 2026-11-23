@@ -36,6 +36,8 @@ uniform float uTulle;
 uniform float uDrop;
 uniform float uAspect;
 uniform float uAlpha;  // < 1 while the corners are being placed
+uniform sampler2D uOcc; // things standing in front of the curtain (furniture, plants)
+uniform float uHasOcc;
 uniform int uType;
 
 float cover(float d, float w) { return clamp(0.5 + d / max(w, 1e-5), 0.0, 1.0); }
@@ -104,6 +106,8 @@ void main() {
     col = mix(col, cas, cc);
     float bb = cover(min(w.y - (bottom - 0.012), (bottom + 0.008) - w.y), fw.y) * cx;
     col = mix(col, vec3(0.8) * mix(vec3(1.0), uColor, 0.35) * clamp(uLight, 0.4, 1.15), bb);
+    float occ = uHasOcc > 0.5 ? smoothstep(0.35, 0.65, texture2D(uOcc, px / uSize).r) : 0.0;
+    col = mix(col, photo, occ);
     gl_FragColor = vec4(mix(photo, clamp(col, 0.0, 1.0), uAlpha), 1.0);
     return;
   }
@@ -179,7 +183,9 @@ void main() {
   col = mix(col, metal(0.5 + dL.y / (2.0 * r)) * rodLight, cover(r - length(dL), fwr));
   col = mix(col, metal(0.5 + dR.y / (2.0 * r)) * rodLight, cover(r - length(dR), fwr));
 
-  gl_FragColor = vec4(mix(photo, clamp(col, 0.0, 1.0), uAlpha), 1.0);
+  float occ = uHasOcc > 0.5 ? smoothstep(0.35, 0.65, texture2D(uOcc, px / uSize).r) : 0.0;
+    col = mix(col, photo, occ);
+    gl_FragColor = vec4(mix(photo, clamp(col, 0.0, 1.0), uAlpha), 1.0);
 }
 `;
 
@@ -194,6 +200,8 @@ export class CurtainRenderer {
   private prog: WebGLProgram;
   private photoTex: WebGLTexture;
   private foldTex: WebGLTexture;
+  private occTex: WebGLTexture;
+  private hasOcc = false;
   private u: Record<string, WebGLUniformLocation | null> = {};
   private width = 1;
   private height = 1;
@@ -232,14 +240,17 @@ export class CurtainRenderer {
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-    for (const n of ['uPhoto', 'uFold', 'uHinv', 'uSize', 'uColor', 'uLight', 'uOpen', 'uTulle', 'uDrop', 'uAspect', 'uAlpha', 'uType']) {
+    for (const n of ['uPhoto', 'uFold', 'uHinv', 'uSize', 'uColor', 'uLight', 'uOpen', 'uTulle', 'uDrop', 'uAspect', 'uAlpha', 'uType', 'uOcc', 'uHasOcc']) {
       this.u[n] = gl.getUniformLocation(prog, n);
     }
     this.photoTex = this.texture(0);
     this.foldTex = this.texture(1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, fold);
+    this.occTex = this.texture(2);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 1, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array([0]));
     gl.uniform1i(this.u.uPhoto, 0);
     gl.uniform1i(this.u.uFold, 1);
+    gl.uniform1i(this.u.uOcc, 2);
   }
 
   private texture(unit: number) {
@@ -277,6 +288,49 @@ export class CurtainRenderer {
       for (let ch = 0; ch < 3; ch++) data[i * 3 + ch] = Math.pow(d[i * 4 + ch] / 255, 2.2);
     this.probe = { data, w: pw, h: ph };
     this.lightKey = '';
+  }
+
+  /**
+   * Pixels that stay in front of the curtain; null clears it. `soft` masks are already 0..255 with
+   * edges aligned to the photo; 0/1 masks get softened here.
+   */
+  setOcclusion(mask: { data: Uint8Array; w: number; h: number } | null, soft = false) {
+    const gl = this.gl;
+    this.hasOcc = !!mask;
+    if (!mask) return;
+    const { w, h, data } = mask;
+    if (soft) {
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, this.occTex);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, w, h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      return;
+    }
+    // Soft edges: two 3×3 box blurs over the 0/255 mask; the shader then sharpens with smoothstep.
+    let a = new Float32Array(w * h);
+    for (let i = 0; i < a.length; i++) a[i] = data[i] ? 255 : 0;
+    for (let pass = 0; pass < 2; pass++) {
+      const b = new Float32Array(a.length);
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          let s = 0, n = 0;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const xx = x + dx, yy = y + dy;
+              if (xx >= 0 && yy >= 0 && xx < w && yy < h) (s += a[yy * w + xx]), n++;
+            }
+          b[y * w + x] = s / n;
+        }
+      a = b;
+    }
+    const bytes = new Uint8Array(a.length);
+    for (let i = 0; i < a.length; i++) bytes[i] = a[i];
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.occTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, w, h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, bytes);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
   }
 
   /**
@@ -327,6 +381,7 @@ export class CurtainRenderer {
     gl.uniform1f(this.u.uTulle, p.tulle);
     gl.uniform1f(this.u.uDrop, p.drop);
     gl.uniform1f(this.u.uAlpha, p.alpha ?? 1);
+    gl.uniform1f(this.u.uHasOcc, this.hasOcc ? 1 : 0);
     gl.uniform3fv(this.u.uLight, this.roomLight(corners));
     const wpx = (Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y) + Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y)) / 2;
     const hpx = (Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y) + Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y)) / 2;
@@ -336,6 +391,8 @@ export class CurtainRenderer {
     gl.bindTexture(gl.TEXTURE_2D, this.photoTex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.foldTex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.occTex);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 }

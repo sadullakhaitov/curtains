@@ -11,8 +11,15 @@ ulashish yoki Telegram orqali buyurtma berish mumkin.
   hisoblanadi — rasm hech qayerga yuborilmaydi.
 - **Kamera** — orqa kamera, chiroq (qoʻllasa), kamerani almashtirish; kamera boʻlmasa galereyadan yuklash yoki
   namuna xona rasmida sinash.
-- **Derazani avtomatik topish** — suratdan keyin nuqtalar oʻzi deraza burchaklariga boradi (`src/ar/detect.ts`: yorugʻ
-  soha + Hough toʻgʻri chiziqlari, sunʼiy intellektsiz, ~30 ms). Ishonchli topilmasa, nuqtalar odatdagi joyida qoladi.
+- **Derazani aqlli topish** — telefonning oʻzida ishlaydigan sunʼiy intellekt (Google MediaPipe, Apache-2.0):
+  - tezkor yorugʻlik tahlili derazaning taxminiy joyini topadi (`src/ar/detect.ts`);
+  - *Magic Touch* modeli shu nuqtadagi derazani aniq ajratadi, unga rom chiziqlari boʻyicha 4 burchak moslanadi,
+    bir nechta tavaqa birlashtiriladi (`src/ar/smart.ts`);
+  - ishonchli topilmasa — xaridor derazaga **bir marta bosadi** va u oʻzi belgilanadi.
+- **Old plandagi buyumlar** — *DeepLab v3* kreslo, divan, gul, odam, stolni topadi; ular parda **oldida** qoladi
+  (deraza ortidagi narsalar emas). Chegaralar rasm boʻyicha aniqlashtiriladi (guided filter).
+- **Modellar faqat kerak boʻlganda** yuklanadi (kamera ochilganda fonda, ~13 MB bir marta, keyin brauzer keshida);
+  yuklanmasa, tezkor usul ishlayveradi. Fayllar saytning oʻzida: `public/mediapipe/`, `public/models/`.
 - **Moslash** — 4 ta burchakni barmoq bilan surish (kattalashtiruvchi lupa bilan), pardani ochish/yopish, tyul zichligi,
   uzunlik, boshqa parda va ranglarga shu rasmning oʻzida oʻtish.
 - **Natija** — "Oldin / Keyin" taqqoslash, NewMoon belgisi bilan JPEG; telefonda "Saqlash" ulashish oynasini ochadi
@@ -65,7 +72,9 @@ src/
   theme.ts           kun/tun rejimi
   store.ts           joriy sinov holati (rasm, burchaklar, sozlamalar)
   ar/homography.ts   perspektiva matematikasi (kvadrat → toʻrtburchak)
-  ar/detect.ts       derazani avtomatik topish
+  ar/detect.ts       yorugʻlik + toʻgʻri chiziqlar boʻyicha deraza
+  ar/vision.ts       MediaPipe: Magic Touch va DeepLab modellari
+  ar/smart.ts        aqlli qidiruv, bosib tanlash, old plandagi buyumlar
   ar/renderer.ts     WebGL shader: parda, tyul, karniz, rulonli parda
   ar/export.ts       JPEG yaratish, saqlash, ulashish
   views/             bosh sahifa, katalog, parda, kamera, moslash, natija, aloqa

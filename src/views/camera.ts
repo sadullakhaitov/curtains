@@ -2,6 +2,7 @@ import { MAX_PHOTO_SIDE } from '../config';
 import { findProduct, PRODUCTS } from '../data/products';
 import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
+import { preloadVision } from '../ar/vision';
 import { session, setPhoto } from '../store';
 import { fabricClass } from '../ui/card';
 import { $, esc, html, toast } from '../ui/dom';
@@ -233,11 +234,16 @@ const view: View = {
 
     $(el, '[data-back]').addEventListener('click', () => back(`/p/${session.productId}`));
 
+    // The window-recognition model takes a moment to download the first time: start it now,
+    // while the visitor is still framing the shot.
+    const preloadTimer = setTimeout(() => preloadVision(), 800);
+
     const onVis = () => (document.hidden ? stop() : start());
     document.addEventListener('visibilitychange', onVis);
     start();
 
     return () => {
+      clearTimeout(preloadTimer);
       alive = false;
       document.removeEventListener('visibilitychange', onVis);
       stop();
