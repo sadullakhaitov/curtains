@@ -7,13 +7,13 @@ import { icon } from '../ui/icons';
 const view: View = {
   render() {
     const T = t();
+    const row = (href: string, ic: string, title: string, sub: string, ext = true) =>
+      `<a class="contact-row glass press" href="${href}"${ext ? ' target="_blank" rel="noopener"' : ''}>
+        <span class="gold icon-btn">${ic}</span><span class="col"><b>${title}</b><small>${sub}</small></span></a>`;
     const items = [
-      CONTACT.telegram &&
-        `<a class="contact-row glass press" href="https://t.me/${CONTACT.telegram}" target="_blank" rel="noopener">
-          <span class="gold icon-btn">${icon.send(20)}</span><span class="col"><b>Telegram</b><small>@${CONTACT.telegram}</small></span></a>`,
-      CONTACT.phone &&
-        `<a class="contact-row glass press" href="tel:${CONTACT.phone}">
-          <span class="gold icon-btn">${icon.phone(20)}</span><span class="col"><b>${T.phone}</b><small>${CONTACT.phone}</small></span></a>`,
+      CONTACT.phone && row(`tel:${CONTACT.phone}`, icon.phone(20), T.phone, CONTACT.phoneDisplay || CONTACT.phone, false),
+      CONTACT.telegram && row(`https://t.me/${CONTACT.telegram}`, icon.send(20), 'Telegram', `@${CONTACT.telegram}`),
+      CONTACT.instagram && row(`https://instagram.com/${CONTACT.instagram}`, icon.instagram(20), T.instagram, `@${CONTACT.instagram}`),
     ].filter(Boolean);
 
     return html(`
@@ -31,6 +31,7 @@ const view: View = {
       </div>
       <div class="col gap-10 rise d2">
         ${items.length ? items.join('') : `<div class="empty glass"><b>${T.contactSoon}</b><small>${T.contactSoonText}</small></div>`}
+        <div class="contact-row glass"><span class="gold icon-btn">${icon.check(20)}</span><span class="col"><b>${T.serviceArea}</b><small>Made in Turkey · VIP / Premium</small></span></div>
       </div>
       ${bottomNav('contact')}
     </main>`);

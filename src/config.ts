@@ -1,12 +1,16 @@
 /**
- * Company contact details. Fill these in before going live —
- * every "Buyurtma" / "Aloqa" button reads from here.
+ * Company contact details — every "Buyurtma" / "Aloqa" button reads from here.
+ * Source: the company's Instagram profile (New moon Buxoro jalyuzi).
  */
 export const CONTACT = {
-  /** Telegram username without "@", e.g. "newmoon_parda". Empty = Telegram buttons are hidden. */
-  telegram: '',
-  /** Phone in international format, e.g. "+998901234567". Empty = phone button is hidden. */
-  phone: '',
+  /** Telegram username without "@". Empty = Telegram buttons are hidden. */
+  telegram: 'jalyuzibuxorouz',
+  /** Phone in international format for tel: links. Empty = phone button is hidden. */
+  phone: '+998880816666',
+  /** The same number as people write it. */
+  phoneDisplay: '+998 88 081 66 66',
+  /** Instagram username without "@". */
+  instagram: 'jalyuzibuxoro.uz',
 };
 
 /** Longest side (px) the uploaded photo is scaled to before rendering. Keeps phones fast. */

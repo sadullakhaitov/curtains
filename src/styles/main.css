@@ -473,3 +473,17 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 
 /* dragging handles / the divider must not select text or open the iOS callout */
 .adjust, .result, .camera { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* ---------- swatches for blinds ---------- */
+.fabric.slats { background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0 2px, rgba(0, 0, 0, 0.22) 2px 4px, transparent 4px 10px); background-size: auto; background-repeat: repeat; }
+.fabric.vanes { background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0 3px, rgba(0, 0, 0, 0.16) 3px 5px, transparent 5px 14px); background-size: auto; background-repeat: repeat; }
+.fabric.pleats { background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0 4px, rgba(0, 0, 0, 0.14) 4px 8px); background-size: auto; background-repeat: repeat; }
+
+/* ---------- about block on the home page ---------- */
+.about { margin-top: 30px; }
+.about h2 { margin: 0 0 12px; font-size: 22px; }
+.about ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.about li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; }
+.about li small { color: var(--muted); font-size: 12px; }
+.about-mark { width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; flex: none; }
+.about-links { display: grid; gap: 10px; margin-top: 12px; }

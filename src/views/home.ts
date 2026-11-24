@@ -1,3 +1,4 @@
+import { CONTACT } from '../config';
 import { PRODUCTS } from '../data/products';
 import { t } from '../i18n';
 import { navigate, type View } from '../router';
@@ -50,6 +51,9 @@ const view: View = {
 
       <nav class="chips rise d4" aria-label="${T.types}">
         <a href="#/catalog" class="chip-btn gold press">${T.all}</a>
+        <a href="#/catalog?type=venetian" class="chip-btn glass press">${T.type.venetian}</a>
+        <a href="#/catalog?type=vertical" class="chip-btn glass press">${T.type.vertical}</a>
+        <a href="#/catalog?type=pleated" class="chip-btn glass press">${T.type.pleated}</a>
         <a href="#/catalog?type=zebra" class="chip-btn glass press">${T.type.zebra}</a>
         <a href="#/catalog?type=classic" class="chip-btn glass press">${T.type.classic}</a>
         <a href="#/catalog?type=tulle" class="chip-btn glass press">${T.type.tulle}</a>
@@ -61,6 +65,17 @@ const view: View = {
         <a href="#/catalog" class="link">${T.seeAll}</a>
       </div>
       <div class="grid rise d5">${popular.map(productCard).join('')}</div>
+
+      <section class="about rise">
+        <h2 class="serif">${T.aboutTitle}</h2>
+        <ul>
+          ${T.about.map(([b, s]) => `<li class="glass"><span class="about-mark gold" aria-hidden="true">${icon.check(14)}</span><span class="col"><b>${b}</b><small>${s}</small></span></li>`).join('')}
+        </ul>
+        <div class="about-links">
+          <a class="btn glass press" href="tel:${CONTACT.phone}">${icon.phone(20)} ${CONTACT.phoneDisplay}</a>
+          <a class="btn glass press" href="https://instagram.com/${CONTACT.instagram}" target="_blank" rel="noopener">${icon.instagram(20)} ${T.reviews}</a>
+        </div>
+      </section>
 
       <section class="how rise">
         <h2 class="serif">${T.how}</h2>

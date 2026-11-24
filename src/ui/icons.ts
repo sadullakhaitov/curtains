@@ -26,6 +26,7 @@ export const icon = {
   arrow: (s?: number) => svg('<path d="M5 12h14M13 6l6 6-6 6"/>', s),
   sparkle: (s = 14) =>
     `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>`,
+  instagram: (s?: number) => svg('<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="0.8" fill="currentColor"/>', s),
   chevUp: (s?: number) => svg('<path d="M6 15l6-6 6 6"/>', s),
   wand: (s?: number) => svg('<path d="M4 20l11-11"/><path d="M15 9l2-2"/><path d="M14 4v2M20 10h-2M18.5 5.5l-1.4 1.4M10 4.5l.6 1.2M19.5 14l-1.2-.6"/>', s),
   flash: (s?: number) => svg('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', s),

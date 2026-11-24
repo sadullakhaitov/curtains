@@ -3,7 +3,8 @@ import { t, tx } from '../i18n';
 import { esc, favs } from './dom';
 import { icon } from './icons';
 
-export const fabricClass = (p: Product) => (p.texture ? 'fabric photo' : p.type === 'roller' || p.type === 'zebra' ? 'fabric roller' : 'fabric fold');
+const SWATCH: Partial<Record<Product['type'], string>> = { roller: 'fabric roller', zebra: 'fabric roller', venetian: 'fabric slats', vertical: 'fabric vanes', pleated: 'fabric pleats' };
+export const fabricClass = (p: Product) => (p.texture ? 'fabric photo' : SWATCH[p.type] ?? 'fabric fold');
 
 /** Inline style for a fabric swatch: the colour, plus the real fabric photo when the product has one. */
 export const fabricStyle = (p: Product, hex: string) => `background-color:${hex}${p.texture ? `;background-image:url(${p.texture})` : ''}`;

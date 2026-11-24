@@ -18,7 +18,7 @@ import type { CurtainParams } from './renderer';
  *    or where the curtain is faded out while corners are being placed.
  */
 
-export type Finish = 'velvet' | 'satin' | 'matte';
+export type Finish = 'velvet' | 'satin' | 'matte' | 'wood' | 'metal';
 export interface Curtain3DParams extends CurtainParams {
   finish?: Finish;
 }
@@ -47,6 +47,32 @@ function weaveTexture(fine: boolean) {
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = fine ? THREE.NoColorSpace : THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** Light wood grain (multiplied by the product colour), for wooden slats. */
+function woodTexture() {
+  const w = 512, h = 64;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#e8e8e8';
+  ctx.fillRect(0, 0, w, h);
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 70; i++) {
+    const y = rnd() * h, a = 0.05 + rnd() * 0.12, wave = 1 + rnd() * 3;
+    ctx.strokeStyle = `rgba(60,40,20,${a})`;
+    ctx.lineWidth = 0.5 + rnd() * 1.6;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 8) ctx.lineTo(x, y + Math.sin(x / (40 + rnd() * 4) + i) * wave);
+    ctx.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
 }
@@ -106,6 +132,7 @@ export class Curtain3D {
   private key = new THREE.DirectionalLight(0xffffff, 1.5);
   private weave = weaveTexture(false);
   private mesh = weaveTexture(true);
+  private wood = woodTexture();
   private parts = new THREE.Group();
   private shadowWall: THREE.Mesh | null = null;
   private buildKey = '';
@@ -324,7 +351,10 @@ export class Curtain3D {
       holder.uniforms = sh.uniforms;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec2 vWin;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWin = position.xy;');
+        .replace(
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\n#ifdef USE_INSTANCING\nvWin = (instanceMatrix * vec4(transformed, 1.0)).xy;\n#else\nvWin = transformed.xy;\n#endif',
+        );
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform sampler2D uPhoto; uniform vec2 uRes; uniform float uThin; uniform vec2 uWin; varying vec2 vWin;')
         .replace(
@@ -365,6 +395,134 @@ export class Curtain3D {
       });
       this.parts.add(m);
     };
+
+    const m4 = new THREE.Matrix4();
+    const q4 = new THREE.Quaternion();
+    const one = new THREE.Vector3(1, 1, 1);
+    const xAxis = new THREE.Vector3(1, 0, 0);
+    const yAxis = new THREE.Vector3(0, 1, 0);
+
+    if (p.type === 'venetian') {
+      // ---------- horizontal blinds: tilting slats, lifted into a stack on the bottom rail ----------
+      const wood = p.finish === 'wood';
+      const xL = -0.02 * WW, xR = 1.02 * WW, wid = xR - xL;
+      const z = -0.06;
+      const headY = -0.045, top = headY + 0.024;
+      const pitch = wood ? 0.044 : 0.022;
+      const slatD = wood ? 0.05 : 0.025, slatT = wood ? 0.0042 : 0.0022;
+      const full = hw + 0.03 - top;
+      const n = Math.max(6, Math.round(full / pitch));
+      const rail = top + full * (1 - 0.88 * p.open);
+      const gap = slatT + 0.0016;
+      const angle = (0.5 - p.tulle) * Math.PI * 0.9; // 0.5 = slats level (open), ends = closed either way
+      const slatMat = wood
+        ? new THREE.MeshStandardMaterial({ color, map: this.wood, roughness: 0.55 })
+        : new THREE.MeshStandardMaterial({ color, metalness: 0.55, roughness: 0.32 });
+      if (wood) {
+        this.wood.repeat.set(wid / 0.6, 1);
+      }
+      const slats = new THREE.InstancedMesh(new THREE.BoxGeometry(wid, slatT, slatD), slatMat, n);
+      for (let i = 0; i < n; i++) {
+        const k = n - 1 - i; // index from the bottom
+        const yNorm = top + (i + 1) * pitch;
+        const stacked = yNorm > rail - (k + 1) * gap;
+        const y = stacked ? rail - (k + 1) * gap : yNorm;
+        q4.setFromAxisAngle(xAxis, stacked ? 0 : angle);
+        slats.setMatrixAt(i, m4.compose(new THREE.Vector3((xL + xR) / 2, y, z), q4, one));
+      }
+      add(slats);
+      const railMat = slatMat;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(wid + 0.012, 0.045, slatD + 0.012), railMat);
+      head.position.set((xL + xR) / 2, headY, z);
+      add(head);
+      const bottomRail = new THREE.Mesh(new THREE.BoxGeometry(wid, wood ? 0.014 : 0.009, slatD), railMat);
+      bottomRail.position.set((xL + xR) / 2, rail + 0.006, z);
+      add(bottomRail);
+      // ladder cords (front and back) and the tilt wand
+      const cordMat = new THREE.MeshStandardMaterial({ color: wood ? color.clone().lerp(new THREE.Color(1, 1, 1), 0.2) : 0xdadada, roughness: 0.9 });
+      for (const fx of [0.12, 0.5, 0.88])
+        for (const dz of [-slatD / 2, slatD / 2]) {
+          const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.0009, 0.0009, rail - top, 6), cordMat);
+          cord.position.set(xL + fx * wid, (top + rail) / 2, z + dz);
+          add(cord, false);
+        }
+      const wand = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, hw * 0.55, 10), new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, thickness: 0.004 }));
+      wand.position.set(xR - 0.03, top + hw * 0.275, z - slatD / 2 - 0.01);
+      add(wand);
+      return;
+    }
+
+    if (p.type === 'vertical') {
+      // ---------- vertical blinds: fabric vanes that turn and gather to one side ----------
+      const xL = -0.06 * WW, xR = 1.06 * WW;
+      const trackY = -0.07, z = -0.08;
+      const vaneW = 0.089, spacing = 0.08;
+      const n = Math.ceil((xR - xL - vaneW) / spacing) + 1;
+      const len = hw + 0.03 + p.drop * hw - (trackY + 0.02);
+      const step = Math.max(0.014, spacing * (1 - p.open));
+      const gathered = step < 0.03;
+      const angle = gathered ? Math.PI * 0.49 : (p.tulle - 0.5) * Math.PI * 0.95;
+      const vane = cloth(
+        6,
+        40,
+        (u, v) => [(u - 0.5) * vaneW, v * len, -0.006 * (1 - (2 * u - 1) ** 2)],
+        (u, v) => [(u * vaneW) / 0.1, (v * len) / 0.1],
+      );
+      const vmat = new THREE.MeshPhysicalMaterial({ color, map: this.weave, roughness: 0.85, sheen: 0.2, side: THREE.DoubleSide });
+      this.translucency(vmat, 0.12 + 0.35 * lum, hw);
+      const vanes = new THREE.InstancedMesh(vane, vmat, n);
+      const weights = new THREE.InstancedMesh(new THREE.BoxGeometry(vaneW * 0.96, 0.014, 0.004), new THREE.MeshStandardMaterial({ color: color.clone().multiplyScalar(0.85), roughness: 0.6 }), n);
+      for (let i = 0; i < n; i++) {
+        const x = xL + vaneW / 2 + i * step;
+        q4.setFromAxisAngle(yAxis, angle);
+        vanes.setMatrixAt(i, m4.compose(new THREE.Vector3(x, trackY + 0.02, z), q4, one));
+        weights.setMatrixAt(i, m4.compose(new THREE.Vector3(x, trackY + 0.02 + len - 0.008, z), q4, one));
+      }
+      add(vanes);
+      add(weights);
+      const track = new THREE.Mesh(new THREE.BoxGeometry(xR - xL + 0.04, 0.03, 0.05), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.35, metalness: 0.2 }));
+      track.position.set((xL + xR) / 2, trackY, z);
+      add(track);
+      return;
+    }
+
+    if (p.type === 'pleated') {
+      // ---------- pleated (plisse) blind inside the frame: crisp zig-zag folds that bunch up when raised ----------
+      const xL = 0.012 * WW, xR = 0.988 * WW, wid = xR - xL;
+      const z = -0.03;
+      const railH = 0.02;
+      const yT = 0.012 + railH;
+      const yB = Math.max(yT + 0.03, hw - 0.012 - (hw - 0.1) * p.open);
+      const half = 0.0125; // half a fold, as sewn
+      const n = Math.max(8, Math.round((hw - 0.05) / 0.018));
+      const pitch = (yB - yT) / n;
+      const depth = Math.sqrt(Math.max(0, half * half - (pitch / 2) ** 2));
+      const geo = cloth(
+        8,
+        n * 2,
+        (u, v) => {
+          const j = Math.round(v * n * 2);
+          return [xL + u * wid, yT + (j * pitch) / 2, z - (j % 2 ? depth : 0)];
+        },
+        (u, v) => [(u * wid) / 0.2, v * n * 0.25],
+      );
+      const pmat = new THREE.MeshPhysicalMaterial({ color, map: this.weave, roughness: 0.9, sheen: 0.15, side: THREE.DoubleSide, flatShading: true });
+      this.translucency(pmat, 0.25 + 0.4 * lum, hw);
+      add(new THREE.Mesh(geo, pmat));
+      const railMat = new THREE.MeshStandardMaterial({ color: 0xe9e9e9, metalness: 0.5, roughness: 0.35 });
+      for (const y of [yT - railH / 2, yB + railH / 2]) {
+        const r = new THREE.Mesh(new THREE.BoxGeometry(wid, railH, 0.026), railMat);
+        r.position.set((xL + xR) / 2, y, z - 0.006);
+        add(r);
+      }
+      const cordMat = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.8 });
+      for (const fx of [0.15, 0.85]) {
+        const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.0008, 0.0008, yB - yT, 6), cordMat);
+        cord.position.set(xL + fx * wid, (yT + yB) / 2, z - depth * 0.5);
+        add(cord, false);
+      }
+      return;
+    }
 
     if (p.type === 'roller' || p.type === 'zebra') {
       const xL = -0.03 * WW, xR = 1.03 * WW;
@@ -462,6 +620,8 @@ export class Curtain3D {
       velvet: { sheen: 1, rough: 0.92, sheenRough: 0.42 },
       satin: { sheen: 0.35, rough: 0.5, sheenRough: 0.3 },
       matte: { sheen: 0.18, rough: 0.95, sheenRough: 0.7 },
+      wood: { sheen: 0.18, rough: 0.95, sheenRough: 0.7 },
+      metal: { sheen: 0.35, rough: 0.5, sheenRough: 0.3 },
     };
 
     // Tulle: full width, fine pleats, see-through, slightly behind the panels.

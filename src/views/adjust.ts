@@ -22,12 +22,20 @@ function controlsFor(p: Product) {
       <div class="slider-head"><label for="s-${key}">${label}</label><output data-out="${key}">${Math.round(value * 100)}%</output></div>
       <input id="s-${key}" type="range" min="0" max="100" value="${Math.round(value * 100)}" data-s="${key}">
     </div>`;
-  return [
-    p.type !== 'tulle' ? slider('open', p.type === 'roller' || p.type === 'zebra' ? t().lift : t().open, session.open) : '',
-    p.type === 'classic' ? slider('tulle', t().tulle, session.tulle) : '',
-    p.type === 'zebra' ? slider('tulle', t().dayNight, session.tulle) : '',
-    p.type !== 'roller' && p.type !== 'zebra' ? slider('drop', t().drop, session.drop) : '',
-  ].join('');
+  const T = t();
+  const open = (label: string) => slider('open', label, session.open);
+  const second = (label: string) => slider('tulle', label, session.tulle);
+  const drop = () => slider('drop', T.drop, session.drop);
+  const byType: Record<Product['type'], string[]> = {
+    classic: [open(T.open), second(T.tulle), drop()],
+    tulle: [drop()],
+    roller: [open(T.lift)],
+    zebra: [open(T.lift), second(T.dayNight)],
+    venetian: [open(T.lift), second(T.tilt)],
+    vertical: [open(T.gather), second(T.tilt), drop()],
+    pleated: [open(T.lift)],
+  };
+  return byType[p.type].join('');
 }
 
 function colorsFor(p: Product) {

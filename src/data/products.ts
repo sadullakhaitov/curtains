@@ -1,6 +1,6 @@
 import { t, tx, type L } from '../i18n';
 
-export type CurtainType = 'classic' | 'tulle' | 'roller' | 'zebra';
+export type CurtainType = 'classic' | 'tulle' | 'roller' | 'zebra' | 'venetian' | 'vertical' | 'pleated';
 
 export interface CurtainColor {
   name: L;
@@ -23,7 +23,7 @@ export interface Product {
   texture?: string;
   colors: CurtainColor[];
   /** How the cloth reflects light in 3D: velvet has a soft sheen, satin a smoother shine, matte none. */
-  finish?: 'velvet' | 'satin' | 'matte';
+  finish?: 'velvet' | 'satin' | 'matte' | 'wood' | 'metal';
   /** Price in so'm per metre. `null` shows "price on request". */
   price: number | null;
   popular?: boolean;
@@ -33,6 +33,59 @@ const img = (name: string) => `images/${name}`;
 const c = (uz: string, ru: string, hex: string): CurtainColor => ({ name: { uz, ru }, hex });
 
 export const PRODUCTS: Product[] = [
+  {
+    id: 'jalyuzi-yogoch',
+    name: { uz: 'Yogʻoch jalyuzi', ru: 'Деревянные жалюзи' },
+    type: 'venetian',
+    finish: 'wood',
+    fabric: { uz: 'Yogʻoch plankalar, 50 mm', ru: 'Деревянные ламели, 50 мм' },
+    description: {
+      uz: 'Gorizontal yogʻoch plankalar: burib yorugʻlikni sozlaysiz, toʻliq koʻtarib derazani ochasiz. Iliq, premium koʻrinish.',
+      ru: 'Горизонтальные деревянные ламели: поворотом регулируете свет, поднимаете — окно открыто. Тёплый премиальный вид.',
+    },
+    colors: [c('Yongʻoq', 'Орех', '#8A6440'), c('Tik', 'Тик', '#A97545'), c('Oq', 'Белый', '#F2EEE6'), c('Venge', 'Венге', '#4B3A2E')],
+    price: null,
+    popular: true,
+  },
+  {
+    id: 'dikey',
+    name: { uz: 'Dikey jalyuzi', ru: 'Вертикальные жалюзи' },
+    type: 'vertical',
+    fabric: { uz: 'Mato lamellar, 89 mm', ru: 'Тканевые ламели, 89 мм' },
+    description: {
+      uz: 'Vertikal mato lamellar: burib yorugʻlikni boshqarasiz, bir tomonga yigʻib derazani ochasiz. Katta derazalar va ofislar uchun.',
+      ru: 'Вертикальные тканевые ламели: поворотом регулируете свет, сдвигаете в сторону — окно открыто. Для больших окон и офисов.',
+    },
+    colors: [c('Oq', 'Белый', '#F3F1EC'), c('Krem', 'Кремовый', '#EADBC0'), c('Kulrang', 'Серый', '#A3A7AD'), c('Moviy', 'Голубой', '#9FB4CF')],
+    price: null,
+    popular: true,
+  },
+  {
+    id: 'plise',
+    name: { uz: 'Plise (garmoshka)', ru: 'Плиссе (гармошка)' },
+    type: 'pleated',
+    fabric: { uz: 'Burmali mato', ru: 'Плиссированная ткань' },
+    description: {
+      uz: 'Garmoshka kabi buklangan mato deraza romiga oʻrnatiladi: yuqoriga yigʻiladi va yorugʻlikni yumshoq tarqatadi. Har qanday derazaga mos.',
+      ru: 'Сложенная гармошкой ткань крепится на раму: собирается вверх и мягко рассеивает свет. Подходит для любых окон.',
+    },
+    colors: [c('Oq', 'Белый', '#F4F2EC'), c('Qum', 'Песочный', '#D9C7A3'), c('Kulrang', 'Серый', '#9EA2A8'), c('Pudra', 'Пудровый', '#E6C9C2')],
+    price: null,
+    popular: true,
+  },
+  {
+    id: 'jalyuzi-alyuminiy',
+    name: { uz: 'Alyuminiy jalyuzi', ru: 'Алюминиевые жалюзи' },
+    type: 'venetian',
+    finish: 'metal',
+    fabric: { uz: 'Alyuminiy plankalar, 25 mm', ru: 'Алюминиевые ламели, 25 мм' },
+    description: {
+      uz: 'Yupqa alyuminiy plankalar namlikdan qoʻrqmaydi — oshxona va ofis uchun qulay.',
+      ru: 'Тонкие алюминиевые ламели не боятся влаги — удобно для кухни и офиса.',
+    },
+    colors: [c('Oq', 'Белый', '#F1F1EF'), c('Kumush', 'Серебро', '#C9CDD3'), c('Antrasit', 'Антрацит', '#4A4F58'), c('Bej', 'Бежевый', '#D8C8A8')],
+    price: null,
+  },
   {
     id: 'zebra-damask',
     name: { uz: 'Zebra Damask', ru: 'Зебра Дамаск' },

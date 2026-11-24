@@ -65,13 +65,13 @@ Boshqa mahsulotlar uchun ham shu yoʻl bilan tekstura tayyorlash mumkin: matoni 
 
 | Nima | Qayerda |
 |---|---|
-| Telegram va telefon raqami | `src/config.ts` → `CONTACT` (boʻsh boʻlsa tugmalar yashiriladi) |
+| Telefon, Telegram, Instagram | `src/config.ts` → `CONTACT` (boʻsh boʻlsa tugmalar yashiriladi) |
 | Pardalar, ranglar, narxlar (uz/ru) | `src/data/products.ts` |
 | Sayt matnlari (uz/ru) | `src/i18n.ts` |
 | Mahsulot rasmlari | `public/images/` (WebP, ~480×600) |
 | Ranglar va dizayn tokenlari | `src/styles/main.css` boshida (`:root` — tun, `[data-theme='day']` — kun) |
 
-Yangi parda qoʻshish: `products.ts` dagi roʻyxatga yangi obyekt qoʻshing. `type` — `classic`, `tulle` yoki `roller`.
+Yangi parda qoʻshish: `products.ts` dagi roʻyxatga yangi obyekt qoʻshing. `type` — `classic`, `tulle`, `roller`, `zebra`, `venetian` (gorizontal jalyuzi; `finish: 'wood' | 'metal'`), `vertical` (dikey) yoki `pleated` (plise). Har bir tur 3D modelda chiziladi.
 Rang `hex` qiymati mato teksturasiga koʻpaytiriladi, shuning uchun matoning eng och tusini yozing.
 
 ## Tuzilishi
