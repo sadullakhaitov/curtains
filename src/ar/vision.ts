@@ -79,6 +79,21 @@ function getObjects() {
   return objects;
 }
 
+let prefetched = false;
+/**
+ * Downloads the runtime and the window model into the browser cache at low priority, without
+ * starting anything (no CPU/GPU work), e.g. while the visitor is still looking at a product.
+ */
+export function prefetchVision() {
+  if (prefetched || runtime) return;
+  prefetched = true;
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (conn?.saveData) return;
+  for (const f of ['mediapipe/vision_wasm_internal.js', 'mediapipe/vision_wasm_internal.wasm', 'models/magic_touch.tflite', 'models/deeplab_v3.tflite']) {
+    fetch(asset(f), { priority: 'low' } as RequestInit).catch(() => {});
+  }
+}
+
 /** Starts downloading the runtime and models in the background (e.g. while the camera is open). */
 export function preloadVision() {
   getTouch().catch(() => {});

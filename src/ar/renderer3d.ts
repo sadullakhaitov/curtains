@@ -544,14 +544,14 @@ export class Curtain3D {
         (u, v) => [(u * fabric) / 0.3, (v * len) / 0.3],
       );
       add(new THREE.Mesh(geo, fabricMat()));
-      // rings over each pleat crest
-      const ringMat = metal;
+      // rings over each pleat crest (one instanced mesh: one draw call)
+      const rings = new THREE.InstancedMesh(new THREE.TorusGeometry(0.016, 0.0028, 8, 20), metal, nP + 1);
+      const rm = new THREE.Matrix4();
       for (let k = 0; k <= nP; k++) {
         const u = Math.min(1, Math.max(0, (k * 2 * Math.PI - seed) / (2 * Math.PI * nP)));
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.016, 0.0028, 8, 20), ringMat);
-        ring.position.set(dir > 0 ? L + u * pw : R - u * pw, rodY, rodZ);
-        add(ring);
+        rings.setMatrixAt(k, rm.makeTranslation(dir > 0 ? L + u * pw : R - u * pw, rodY, rodZ));
       }
+      add(rings);
     }
   }
 

@@ -124,6 +124,8 @@ const view: View = {
         view3d = r as unknown as typeof view3d;
         draw3d();
         hero.classList.add('has-3d');
+        // likely next step is "try on my window": fetch the recognition models quietly meanwhile
+        setTimeout(() => import('../ar/vision').then((v) => v.prefetchVision()), 2500);
         el.querySelector<HTMLElement>('[data-3d-hint]')!.hidden = false;
         requestAnimationFrame(spin);
       } catch {

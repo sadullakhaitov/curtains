@@ -183,7 +183,10 @@ const view: View = {
       if (allowLensSwitch && lenses.length > 1) {
         // the longest lens that does not overshoot the wanted zoom
         const target = lenses.filter((l) => l.factor <= z + 1e-6).pop() ?? lenses[0];
-        if (target !== lens) {
+        // Switching lenses restarts the camera (and some browsers ask about "stopping the recording"),
+        // so stay on the current lens whenever its own zoom range reaches the wanted value.
+        const reach = hw && z / lens.factor >= hw.min - 1e-6 && z / lens.factor <= hw.max + 1e-6;
+        if (target !== lens && !reach) {
           lens = target;
           zoom = z;
           await start();
@@ -259,7 +262,10 @@ const view: View = {
     };
 
     const start = async () => {
+      const hadStream = !!stream;
       stop();
+      // give the phone a moment to release the previous lens before opening another
+      if (hadStream) await new Promise((r) => setTimeout(r, 180));
       if (!navigator.mediaDevices?.getUserMedia) {
         showOff(isSecureContext ? t().camNoSupport : t().camInsecure);
         return;
@@ -362,7 +368,7 @@ const view: View = {
 
     // The window-recognition model takes a moment to download the first time: start it now,
     // while the visitor is still framing the shot.
-    const preloadTimer = setTimeout(() => preloadVision(), 800);
+    const preloadTimer = setTimeout(() => preloadVision(), 0);
 
     const onVis = () => (document.hidden ? stop() : start());
     document.addEventListener('visibilitychange', onVis);

@@ -204,6 +204,7 @@ const view: View = {
         canvas.classList.add('ready');
         applyOcclusion();
         if (needsDetect) setTimeout(() => autoDetect(false), 300);
+        else setTimeout(startFront, 300);
       })
       .catch((e) => {
         const err = $(el, '[data-error]');
@@ -262,13 +263,18 @@ const view: View = {
       schedule();
     };
     let alive = true;
-    frontObjects(photo)
-      .then((m) => {
-        if (!alive) return;
-        front = m;
-        applyOcclusion();
-      })
-      .catch(() => {});
+    let frontStarted = false;
+    const startFront = () => {
+      if (frontStarted || !alive) return;
+      frontStarted = true;
+      frontObjects(photo)
+        .then((m) => {
+          if (!alive) return;
+          front = m;
+          applyOcclusion();
+        })
+        .catch(() => {});
+    };
 
     // ---- Smart window detection ----
     let current: WindowFind | null = null;
@@ -301,6 +307,7 @@ const view: View = {
       btn.classList.remove('spinning');
       busy = false;
       setStatus(t().tapHint, false);
+      startFront();
       if (found) {
         current = found;
         animateTo(found.corners);

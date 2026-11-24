@@ -93,7 +93,9 @@ function samePaneRow(a: Point[], b: Point[], ph: number, pw: number) {
 async function extendPanes(photo: HTMLCanvasElement, f: WindowFind): Promise<WindowFind> {
   const pw = photo.width, ph = photo.height;
   const qw = right(f.corners) - left(f.corners);
-  if (qw > pw * 0.55) return f;
+  const qh = bottom(f.corners) - top(f.corners);
+  // Only a tall, narrow shape is likely one pane of a wider window; anything else is the whole window.
+  if (qw > pw * 0.45 || qh / qw < 1.25) return f;
   const midY = (top(f.corners) + bottom(f.corners)) / 2;
   for (const x of [left(f.corners) - qw * 0.55, right(f.corners) + qw * 0.55]) {
     if (x < pw * 0.02 || x > pw * 0.98) continue;
@@ -127,6 +129,8 @@ export async function findWindow(photo: HTMLCanvasElement, guess: Point[] | null
     if (!m) continue;
     const e = evaluate(photo, m, true, `cand ${Math.round(p.x)},${Math.round(p.y)}`);
     if (e && e.plausible && (!best || e.score > best.score)) best = e;
+    // Each model run costs real time on a phone: stop as soon as the answer is clear.
+    if (best && best.score >= 1.45) break;
   }
   // Nothing convincing: better to ask the visitor to tap the window than to guess wrong.
   if (!best || best.score < 1.2) return null;
