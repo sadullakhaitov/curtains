@@ -24,6 +24,8 @@ export interface Curtain3DParams extends CurtainParams {
 }
 
 const WW = 1.3; // assumed window width in metres (only the scale of pleats depends on it)
+/** Physical size of one pattern tile (m). */
+const PAT = 0.34;
 
 function weaveTexture(fine: boolean) {
   const n = 256;
@@ -125,6 +127,8 @@ export class Curtain3D {
   private photoTex: THREE.Texture | null = null;
   private occTex: THREE.DataTexture | null = null;
   private fabTex: THREE.Texture | null = null;
+  /** Tileable woven pattern (jacquard, linen, ikat…), multiplied by the colour. One tile = PAT metres. */
+  private patTex: THREE.Texture | null = null;
   private fabAspect = 1;
   private envRT: THREE.WebGLRenderTarget | null = null;
   private pmrem: THREE.PMREMGenerator;
@@ -264,6 +268,27 @@ export class Curtain3D {
       this.fabAspect = img.naturalHeight / img.naturalWidth;
     }
     this.buildKey = '';
+  }
+
+  setPattern(img: HTMLImageElement | null) {
+    if (this.patTex && img && this.patTex.image === img) return;
+    if (!this.patTex && !img) return;
+    this.patTex?.dispose();
+    this.patTex = null;
+    if (img) {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+      t.needsUpdate = true;
+      this.patTex = t;
+    }
+    this.buildKey = '';
+  }
+
+  /** Fabric map and the size of one texture tile in metres: the pattern if the product has one, else the plain weave. */
+  private cloth(weaveTile: number) {
+    return this.patTex ? { map: this.patTex, tile: PAT } : { map: this.weave, tile: weaveTile };
   }
 
   /** Window pose from the four corners: [R|t] in OpenCV camera space, focal length, window height in metres. */
@@ -462,13 +487,14 @@ export class Curtain3D {
       const step = Math.max(0.014, spacing * (1 - p.open));
       const gathered = step < 0.03;
       const angle = gathered ? Math.PI * 0.49 : (p.tulle - 0.5) * Math.PI * 0.95;
+      const vc = this.cloth(0.1);
       const vane = cloth(
         6,
         40,
         (u, v) => [(u - 0.5) * vaneW, v * len, -0.006 * (1 - (2 * u - 1) ** 2)],
-        (u, v) => [(u * vaneW) / 0.1, (v * len) / 0.1],
+        (u, v) => [(u * vaneW) / vc.tile, (v * len) / vc.tile],
       );
-      const vmat = new THREE.MeshPhysicalMaterial({ color, map: this.weave, roughness: 0.85, sheen: 0.2, side: THREE.DoubleSide });
+      const vmat = new THREE.MeshPhysicalMaterial({ color, map: vc.map, roughness: 0.85, sheen: 0.2, side: THREE.DoubleSide });
       this.translucency(vmat, 0.12 + 0.35 * lum, hw);
       const vanes = new THREE.InstancedMesh(vane, vmat, n);
       const weights = new THREE.InstancedMesh(new THREE.BoxGeometry(vaneW * 0.96, 0.014, 0.004), new THREE.MeshStandardMaterial({ color: color.clone().multiplyScalar(0.85), roughness: 0.6 }), n);
@@ -504,9 +530,9 @@ export class Curtain3D {
           const j = Math.round(v * n * 2);
           return [xL + u * wid, yT + (j * pitch) / 2, z - (j % 2 ? depth : 0)];
         },
-        (u, v) => [(u * wid) / 0.2, v * n * 0.25],
+        (u, v) => (this.patTex ? [(u * wid) / PAT, (v * (hw - 0.05)) / PAT] : [(u * wid) / 0.2, v * n * 0.25]),
       );
-      const pmat = new THREE.MeshPhysicalMaterial({ color, map: this.weave, roughness: 0.9, sheen: 0.15, side: THREE.DoubleSide, flatShading: true });
+      const pmat = new THREE.MeshPhysicalMaterial({ color, map: this.patTex ?? this.weave, roughness: 0.9, sheen: 0.15, side: THREE.DoubleSide, flatShading: true });
       this.translucency(pmat, 0.25 + 0.4 * lum, hw);
       add(new THREE.Mesh(geo, pmat));
       const railMat = new THREE.MeshStandardMaterial({ color: 0xe9e9e9, metalness: 0.5, roughness: 0.35 });
@@ -524,23 +550,82 @@ export class Curtain3D {
       return;
     }
 
+    if (p.type === 'roman') {
+      // ---------- roman blind: flat fabric panel; raising it draws the sections up into soft stacked folds ----------
+      const xL = -0.04 * WW, xR = 1.04 * WW, wid = xR - xL;
+      const z = -0.05;
+      const yT = -0.03;
+      const full = hw + 0.05 - yT; // fabric length when fully lowered
+      const n = Math.max(4, Math.round(full / 0.22)); // sections between the hidden rods
+      const d = full / n;
+      // lowest sections gather first; each gathered section keeps its fabric length d but spans only hc
+      const hc = d * (1 - 0.86 * Math.min(1, p.open * 1.15));
+      const fold = Math.sqrt(Math.max(0, d * d - hc * hc)) * 0.5;
+      const flatLen = full - n * d; // 0, kept for clarity
+      const rc = this.cloth(0.25);
+      // the top section hangs flat and takes whatever height the gathered ones leave
+      const topH = d + flatLen;
+      const yOf = (sArc: number): [number, number] => {
+        if (sArc <= topH) return [yT + sArc, 0];
+        const k = (sArc - topH) / d; // 0..n-1 within the gathered sections
+        const i = Math.min(n - 2, Math.floor(k));
+        const tt = k - i;
+        // each section bows forward as a soft loop; slight droop makes the lower half rounder
+        const y = yT + topH + i * hc + hc * tt;
+        const bow = fold * Math.sin(Math.PI * tt) * (1 + 0.15 * (i / n)) * (0.85 + 0.15 * Math.sin(Math.PI * tt));
+        return [y, bow];
+      };
+      const sides = (u: number) => 1 - 0.25 * Math.pow(Math.abs(2 * u - 1), 6); // folds flatten at the edges
+      const geo = cloth(
+        24,
+        n * 18,
+        (u, v) => {
+          const [y, bow] = yOf(v * full);
+          return [xL + u * wid, y, z - bow * sides(u)];
+        },
+        (u, v) => [(u * wid) / rc.tile, ((1 - v) * full) / rc.tile],
+      );
+      const f = { velvet: 0.9, satin: 0.35, matte: 0.18, wood: 0.1, metal: 0.3 }[p.finish ?? 'matte'];
+      const mat = new THREE.MeshPhysicalMaterial({
+        color,
+        map: rc.map,
+        roughness: p.finish === 'satin' ? 0.55 : 0.88,
+        sheen: f,
+        sheenRoughness: 0.5,
+        sheenColor: color.clone().lerp(new THREE.Color(1, 1, 1), 0.3),
+        side: THREE.DoubleSide,
+      });
+      this.translucency(mat, 0.1 + 0.35 * lum, hw);
+      add(new THREE.Mesh(geo, mat));
+      const bottomY = yT + topH + (n - 1) * hc;
+      // weighted bottom bar sewn into the hem, and the headrail
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(wid, 0.012, 0.01), new THREE.MeshPhysicalMaterial({ color, map: rc.map, roughness: 0.8 }));
+      bar.position.set((xL + xR) / 2, bottomY - 0.004, z);
+      add(bar);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(wid + 0.01, 0.04, 0.045), new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.4, metalness: 0.15 }));
+      head.position.set((xL + xR) / 2, yT - 0.02, z + 0.012);
+      add(head);
+      return;
+    }
+
     if (p.type === 'roller' || p.type === 'zebra') {
       const xL = -0.03 * WW, xR = 1.03 * WW;
       const yT = -0.012, yB = Math.max(yT + 0.05, hw * (1.03 - 0.94 * p.open));
       const z = -0.04;
       const zebra = p.type === 'zebra' && !!this.fabTex;
       const tileH = this.fabAspect * (xR - xL);
+      const rc = this.cloth(0.25);
       // fabric under tension: faint ripples that catch the light, strongest near the sides
       const ripple = (u: number, v: number) => 0.0018 * Math.sin(v * 70 + u * 3) * (0.3 + 0.7 * Math.abs(u - 0.5) * 2);
       const geo = cloth(
         60,
         60,
         (u, v) => [xL + u * (xR - xL), yT + v * (yB - yT), z + ripple(u, v)],
-        (u, v) => (zebra ? [u, ((yB - yT) * (1 - v)) / tileH] : [(u * (xR - xL)) / 0.25, ((1 - v) * (yB - yT)) / 0.25]),
+        (u, v) => (zebra ? [u, ((yB - yT) * (1 - v)) / tileH] : [(u * (xR - xL)) / rc.tile, ((1 - v) * (yB - yT)) / rc.tile]),
       );
       const mat = new THREE.MeshPhysicalMaterial({
-        color: zebra ? color : color,
-        map: zebra ? this.fabTex : this.weave,
+        color,
+        map: zebra ? this.fabTex : rc.map,
         roughness: 0.78,
         sheen: 0.25,
         sheenRoughness: 0.6,
@@ -569,7 +654,7 @@ export class Curtain3D {
       }
 
       // cassette (fabric-wrapped tube), end caps, bottom bar, bead chain
-      const casMat = new THREE.MeshPhysicalMaterial({ color, map: zebra ? this.fabTex : this.weave, roughness: 0.6, sheen: 0.2 });
+      const casMat = new THREE.MeshPhysicalMaterial({ color, map: zebra ? this.fabTex : rc.map, roughness: 0.6, sheen: 0.2 });
       const cas = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.034, xR - xL + 0.03, 40), casMat);
       cas.rotation.z = Math.PI / 2;
       cas.position.set((xL + xR) / 2, yT - 0.03, z - 0.004);
@@ -666,10 +751,11 @@ export class Curtain3D {
     const s = 0.13; // fabric per pleat
     const fabric = pwClosed * 1.9;
     const nP = Math.max(3, Math.round(fabric / s));
+    const cc = this.cloth(0.3);
     const fabricMat = () => {
       const m = new THREE.MeshPhysicalMaterial({
         color,
-        map: this.weave,
+        map: cc.map,
         roughness: f.rough,
         sheen: f.sheen,
         sheenRoughness: f.sheenRough,
@@ -703,7 +789,7 @@ export class Curtain3D {
           const y = yT + v * len + 0.01 * c * smooth(0.94, 1, v);
           return [x, y, rodZ + 0.005 - amp * profile - swell];
         },
-        (u, v) => [(u * fabric) / 0.3, (v * len) / 0.3],
+        (u, v) => [(u * fabric) / cc.tile, (v * len) / cc.tile],
       );
       add(new THREE.Mesh(geo, fabricMat()));
       // rings over each pleat crest (one instanced mesh: one draw call)
@@ -750,7 +836,7 @@ export class Curtain3D {
     );
     this.world.matrixWorldNeedsUpdate = true;
 
-    const key = [p.type, p.color, p.open.toFixed(3), p.tulle.toFixed(3), p.drop.toFixed(3), hw.toFixed(2), p.finish, !!this.fabTex].join('|');
+    const key = [p.type, p.color, p.open.toFixed(3), p.tulle.toFixed(3), p.drop.toFixed(3), hw.toFixed(2), p.finish, !!this.fabTex, this.patTex ? this.patTex.id : 0].join('|');
     if (key !== this.buildKey) {
       this.build(p, hw);
       this.buildKey = key;

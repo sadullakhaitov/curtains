@@ -31,6 +31,7 @@ function controlsFor(p: Product) {
     tulle: [drop()],
     roller: [open(T.lift)],
     zebra: [open(T.lift), second(T.dayNight)],
+    roman: [open(T.lift)],
     venetian: [open(T.lift), second(T.tilt)],
     vertical: [open(T.gather), second(T.tilt), drop()],
     pleated: [open(T.lift)],
@@ -117,6 +118,8 @@ const view: View = {
     // 3D (three.js) when the device can, otherwise the 2D shader renderer; both share this interface.
     type AnyRenderer = Pick<CurtainRenderer, 'setPhoto' | 'setOcclusion' | 'setFabricTexture'> & {
       readonly canvas: HTMLCanvasElement;
+      /** Woven pattern (3D renderer only). */
+      setPattern?(img: HTMLImageElement | null): void;
       render(corners: Point[], p: ReturnType<typeof params>): void;
     };
     let renderer: AnyRenderer | null = null;
@@ -143,6 +146,15 @@ const view: View = {
     // Photo-textured products (zebra blinds) need their fabric photo on the GPU before drawing.
     const useTexture = () => {
       const p = product();
+      if (!p.pattern) renderer?.setPattern?.(null);
+      else
+        loadTexture(p.pattern)
+          .then((img) => {
+            if (product().pattern !== p.pattern) return;
+            renderer?.setPattern?.(img);
+            schedule();
+          })
+          .catch(() => {});
       if (!p.texture) {
         renderer?.setFabricTexture(null);
         return;

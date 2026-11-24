@@ -51,6 +51,7 @@ const view: View = {
 
       <nav class="chips rise d4" aria-label="${T.types}">
         <a href="#/catalog" class="chip-btn gold press">${T.all}</a>
+        <a href="#/catalog?type=roman" class="chip-btn glass press">${T.type.roman}</a>
         <a href="#/catalog?type=venetian" class="chip-btn glass press">${T.type.venetian}</a>
         <a href="#/catalog?type=vertical" class="chip-btn glass press">${T.type.vertical}</a>
         <a href="#/catalog?type=pleated" class="chip-btn glass press">${T.type.pleated}</a>

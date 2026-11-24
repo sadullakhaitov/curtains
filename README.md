@@ -71,7 +71,7 @@ Boshqa mahsulotlar uchun ham shu yoʻl bilan tekstura tayyorlash mumkin: matoni 
 | Mahsulot rasmlari | `public/images/` (WebP, ~480×600) |
 | Ranglar va dizayn tokenlari | `src/styles/main.css` boshida (`:root` — tun, `[data-theme='day']` — kun) |
 
-Yangi parda qoʻshish: `products.ts` dagi roʻyxatga yangi obyekt qoʻshing. `type` — `classic`, `tulle`, `roller`, `zebra`, `venetian` (gorizontal jalyuzi; `finish: 'wood' | 'metal'`), `vertical` (dikey) yoki `pleated` (plise). Har bir tur 3D modelda chiziladi.
+Yangi parda qoʻshish: `products.ts` dagi roʻyxatga yangi obyekt qoʻshing. `type` — `classic`, `tulle`, `roller`, `zebra`, `roman` (rim pardasi), `venetian` (gorizontal jalyuzi; `finish: 'wood' | 'metal'`), `vertical` (dikey) yoki `pleated` (plise). Har bir tur 3D modelda chiziladi. Naqshli mato uchun `pattern` maydoniga `public/images/patterns/` dagi tekstura yoʻlini bering (rang bilan boʻyaladi); teksturalar `scripts` siz, Python bilan generatsiya qilingan — oʻz mato suratingizni ham shu yerga qoʻyish mumkin (choksiz takrorlanadigan, ochiq kulrang).
 Rang `hex` qiymati mato teksturasiga koʻpaytiriladi, shuning uchun matoning eng och tusini yozing.
 
 ## Tuzilishi

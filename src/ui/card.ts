@@ -4,10 +4,10 @@ import { esc, favs } from './dom';
 import { icon } from './icons';
 
 const SWATCH: Partial<Record<Product['type'], string>> = { roller: 'fabric roller', zebra: 'fabric roller', venetian: 'fabric slats', vertical: 'fabric vanes', pleated: 'fabric pleats' };
-export const fabricClass = (p: Product) => (p.texture ? 'fabric photo' : SWATCH[p.type] ?? 'fabric fold');
+export const fabricClass = (p: Product) => (p.texture ? 'fabric photo' : p.pattern ? 'fabric pat' : SWATCH[p.type] ?? 'fabric fold');
 
 /** Inline style for a fabric swatch: the colour, plus the real fabric photo when the product has one. */
-export const fabricStyle = (p: Product, hex: string) => `background-color:${hex}${p.texture ? `;background-image:url(${p.texture})` : ''}`;
+export const fabricStyle = (p: Product, hex: string) => `background-color:${hex}${p.texture || p.pattern ? `;background-image:url(${p.texture ?? p.pattern})` : ''}`;
 
 /** Product media: interior photo, or the tinted fabric itself when there is no photo. */
 export function productMedia(p: Product, colorIndex = 0) {

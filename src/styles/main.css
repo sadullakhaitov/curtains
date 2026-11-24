@@ -487,3 +487,8 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 .about li small { color: var(--muted); font-size: 12px; }
 .about-mark { width: 28px; height: 28px; border-radius: 14px; display: grid; place-items: center; flex: none; }
 .about-links { display: grid; gap: 10px; margin-top: 12px; }
+
+/* ---------- woven pattern swatches (jacquard, linen, ikat…) ---------- */
+.fabric.pat { background-size: 120px auto; background-repeat: repeat; background-blend-mode: multiply; transition: background-color 0.7s var(--ease), transform 0.25s var(--ease), box-shadow 0.3s ease; }
+.swatch.fabric.pat { background-size: 60px auto; }
+.p-hero .fabric.pat { background-size: 180px auto; }

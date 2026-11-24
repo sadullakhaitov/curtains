@@ -94,12 +94,12 @@ const view: View = {
     let yaw = 0.35, pitch = 0.05, auto = true, raf3 = 0, alive3 = true;
     const studioParams = () => {
       const col = p.colors[ci] ?? p.colors[0];
-      const flat = p.type === 'roller' || p.type === 'zebra' || p.type === 'pleated';
+      const flat = p.type === 'roller' || p.type === 'zebra' || p.type === 'pleated' || p.type === 'roman';
       const slats = p.type === 'venetian' || p.type === 'vertical';
       return {
         type: p.type,
         color: col.hex,
-        open: flat ? 0.12 : slats ? 0.04 : 0.3,
+        open: p.type === 'roman' ? 0.3 : flat ? 0.12 : slats ? 0.04 : 0.3,
         tulle: p.type === 'tulle' ? 0.9 : slats ? 0.36 : flat ? 0.25 : 0.35,
         drop: 0.2,
         alpha: 1,
@@ -130,6 +130,7 @@ const view: View = {
         const b = hero.getBoundingClientRect();
         r.setStudio(b.width, b.height);
         if (p.texture) r.setFabricTexture(await rmod.loadTexture(p.texture));
+        if (p.pattern) r.setPattern(await rmod.loadTexture(p.pattern));
         view3d = r as unknown as typeof view3d;
         draw3d();
         hero.classList.add('has-3d');
