@@ -261,10 +261,12 @@ export class Curtain3D {
     const hw = Math.min(4, Math.max(0.25, (WW * n2) / n1));
     let lam = n1 / WW;
     if (m3.z / lam < 0) lam = -lam;
-    const r1 = m1.clone().divideScalar(lam * WW).normalize();
-    let r2 = m2.clone().divideScalar(lam * hw).normalize();
-    r2 = r2.sub(r1.clone().multiplyScalar(r1.dot(r2))).normalize();
-    const r3 = new THREE.Vector3().crossVectors(r1, r2);
+    // Keep the two in-plane axes exactly as measured (not forced perpendicular): then the window's four
+    // corners land exactly on the four handles even when the focal length can only be guessed (strong
+    // perspective, a slightly misplaced handle). Forcing them square tilted the whole curtain sideways.
+    const r1 = m1.clone().divideScalar(lam * WW);
+    const r2 = m2.clone().divideScalar(lam * hw);
+    const r3 = new THREE.Vector3().crossVectors(r1, r2).normalize();
     const t = m3.clone().divideScalar(lam);
     return { f, hw, r1, r2, r3, t };
   }

@@ -470,3 +470,6 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 /* the hero shade and hint must not swallow the rotate gesture */
 .p-hero-shade { pointer-events: none; z-index: 1; }
 .p-3d-hint { top: calc(74px + var(--safe-t)); bottom: auto; }
+
+/* dragging handles / the divider must not select text or open the iOS callout */
+.adjust, .result, .camera { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
