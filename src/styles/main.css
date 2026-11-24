@@ -417,3 +417,18 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 /* real fabric photo swatches (e.g. zebra blinds), tinted by the colour via multiply */
 .fabric.photo { background-size: 140% auto; background-repeat: repeat; background-position: center; background-blend-mode: multiply; transition: background-color 0.7s var(--ease), transform 0.25s var(--ease), box-shadow 0.3s ease; }
 .p-hero .fabric.photo { background-size: 120% auto; }
+
+/* ---------- pull-down settings sheet (adjust + result) ---------- */
+.adjust .stage, .result .stage { position: absolute; inset: 0; flex: none; }
+.adj-sheet, .res-sheet { position: absolute; left: 0; right: 0; bottom: 0; margin-top: 0; z-index: 4; will-change: transform; }
+.sheet-in { animation: sheet-in 0.55s var(--ease) backwards; }
+@keyframes sheet-in { from { opacity: 0; } }
+.sheet-handle { position: relative; width: calc(100% + 36px); margin: -12px -18px -8px; height: 40px; border: 0; background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: grab; touch-action: none; color: var(--muted); flex: none; }
+.res-sheet .sheet-handle { width: calc(100% + 40px); margin: -12px -20px -6px; }
+.sheet-handle .grabber { width: 44px; height: 5px; margin: 0; transition: width 0.25s var(--ease), background-color 0.25s; }
+.sheet-handle:hover .grabber, .sheet.is-dragging .grabber { width: 56px; background: #e2bc55; }
+.sheet-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; max-height: 0; opacity: 0; overflow: hidden; transition: opacity 0.25s ease, max-height 0.25s ease; }
+.sheet.is-collapsed .sheet-label { max-height: 18px; opacity: 1; }
+.sheet.is-dragging .sheet-handle { cursor: grabbing; }
+.adjust .stage-hint { top: auto; bottom: calc(var(--sv, 320px) + 4px); }
+.result-stage .res-img { inset: 0 0 auto 0; height: calc(100% - var(--sv, 0px)); }

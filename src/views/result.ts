@@ -6,6 +6,7 @@ import { navigate, type View } from '../router';
 import { session } from '../store';
 import { fabricClass, fabricStyle } from '../ui/card';
 import { $, $$, esc, html, telegramLink, toast } from '../ui/dom';
+import { bottomSheet } from '../ui/sheet';
 import { icon } from '../ui/icons';
 
 const view: View = {
@@ -41,8 +42,8 @@ const view: View = {
         <a href="#/" class="gp icon-btn press" aria-label="${T.home}">${icon.home(19)}</a>
       </header>
 
-      <section class="sheet res-sheet rise d1">
-        <div class="grabber" aria-hidden="true"></div>
+      <section class="sheet res-sheet sheet-in" data-sheet aria-label="${T.save}">
+        <button class="sheet-handle" data-sheet-handle aria-expanded="true" aria-label="${T.save}"><span class="grabber" aria-hidden="true"></span><span class="sheet-label" aria-hidden="true">${icon.chevUp(16)} ${T.save}</span></button>
         <div class="row gap-12 res-product">
           <span class="dot xl ${fabricCls}" style="${fabricStyle(p, c.hex)}" aria-hidden="true"></span>
           <div class="col grow">
@@ -81,6 +82,8 @@ const view: View = {
       });
     }
 
+    const stage = $(el, '.result-stage');
+    const sheet = bottomSheet($(el, '[data-sheet]'), { onMove: (v) => stage.style.setProperty('--sv', `${Math.max(0, v - 26)}px`) });
     $(el, '[data-edit]').addEventListener('click', () => navigate('/adjust', true));
 
     $(el, '[data-save]').addEventListener('click', async () => {
@@ -96,6 +99,7 @@ const view: View = {
         if (r === 'downloaded') toast(t().shareFallback, 'info');
       }
     });
+    return () => sheet.destroy();
   },
 };
 export default view;

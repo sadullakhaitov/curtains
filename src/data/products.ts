@@ -22,6 +22,8 @@ export interface Product {
    */
   texture?: string;
   colors: CurtainColor[];
+  /** How the cloth reflects light in 3D: velvet has a soft sheen, satin a smoother shine, matte none. */
+  finish?: 'velvet' | 'satin' | 'matte';
   /** Price in so'm per metre. `null` shows "price on request". */
   price: number | null;
   popular?: boolean;
@@ -48,6 +50,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'barxat',
+    finish: 'velvet',
     name: { uz: 'Barxat', ru: 'Бархат' },
     type: 'classic',
     fabric: { uz: 'Barxat', ru: 'Бархат' },
@@ -67,6 +70,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'blackout-antrasit',
+    finish: 'satin',
     name: { uz: 'Blackout Antrasit', ru: 'Блэкаут Антрацит' },
     type: 'classic',
     fabric: { uz: 'Blackout', ru: 'Блэкаут' },
@@ -95,6 +99,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'zaytun-klassik',
+    finish: 'matte',
     name: { uz: 'Klassik Zaytun', ru: 'Классика Олива' },
     type: 'classic',
     fabric: { uz: 'Kanvas', ru: 'Канвас' },
@@ -109,6 +114,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'dimout-kok',
+    finish: 'satin',
     name: { uz: 'Dimout Koʻk', ru: 'Димаут Синий' },
     type: 'classic',
     fabric: { uz: 'Dimout', ru: 'Димаут' },

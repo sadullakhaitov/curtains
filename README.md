@@ -20,6 +20,10 @@ ulashish yoki Telegram orqali buyurtma berish mumkin.
   (deraza ortidagi narsalar emas). Chegaralar rasm boʻyicha aniqlashtiriladi (guided filter).
 - **Modellar faqat kerak boʻlganda** yuklanadi (kamera ochilganda fonda, ~13 MB bir marta, keyin brauzer keshida);
   yuklanmasa, tezkor usul ishlayveradi. Fayllar saytning oʻzida: `public/mediapipe/`, `public/models/`.
+- **3D parda** (three.js, faqat Moslash ekranida yuklanadi): burchaklardan kamera fokusi va derazaning holati
+  hisoblanadi; burmalar haqiqiy 3D (yigʻilganda chuqurlashadi), barxat/satin/xira material, xona surati atrof-muhit
+  yorugʻligi sifatida, devorga yumshoq soya, deraza nuri mato orqali. 3D ishlamasa 2D renderer ishlaydi.
+- **Yashiriladigan sozlamalar** — pastki panelni barmoq bilan pastga tortib, rasmni toʻliq koʻrish mumkin.
 - **Moslash** — 4 ta burchakni barmoq bilan surish (kattalashtiruvchi lupa bilan), pardani ochish/yopish, tyul zichligi,
   uzunlik, boshqa parda va ranglarga shu rasmning oʻzida oʻtish.
 - **Natija** — "Oldin / Keyin" taqqoslash, NewMoon belgisi bilan JPEG; telefonda "Saqlash" ulashish oynasini ochadi
@@ -82,9 +86,11 @@ src/
   ar/detect.ts       yorugʻlik + toʻgʻri chiziqlar boʻyicha deraza
   ar/vision.ts       MediaPipe: Magic Touch va DeepLab modellari
   ar/smart.ts        aqlli qidiruv, bosib tanlash, old plandagi buyumlar
-  ar/renderer.ts     WebGL shader: parda, tyul, karniz, rulonli parda
+  ar/renderer3d.ts   3D parda (three.js)
+  ar/renderer.ts     WebGL shader (2D zaxira): parda, tyul, karniz, rulonli parda
   ar/export.ts       JPEG yaratish, saqlash, ulashish
   views/             bosh sahifa, katalog, parda, kamera, moslash, natija, aloqa
+  ui/sheet.ts        pastga yashiriladigan panel
   ui/                ikonkalar, kartochka, yordamchi funksiyalar
 ```
 

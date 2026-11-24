@@ -10,6 +10,7 @@ import { back, navigate, type View } from '../router';
 import { session } from '../store';
 import { fabricClass, fabricStyle } from '../ui/card';
 import { $, $$, esc, html, toast } from '../ui/dom';
+import { bottomSheet } from '../ui/sheet';
 import { icon } from '../ui/icons';
 
 const product = (): Product => findProduct(session.productId) ?? PRODUCTS[0];
@@ -71,8 +72,8 @@ const view: View = {
         <button class="gold btn-sm press" data-done>${T.done}</button>
       </header>
 
-      <section class="sheet adj-sheet rise d1" aria-label="${T.settings}">
-        <div class="grabber" aria-hidden="true"></div>
+      <section class="sheet adj-sheet sheet-in" aria-label="${T.settings}" data-sheet>
+        <button class="sheet-handle" data-sheet-handle aria-expanded="true" aria-label="${T.settings}"><span class="grabber" aria-hidden="true"></span><span class="sheet-label" aria-hidden="true">${icon.chevUp(16)} ${T.settings}</span></button>
         <div class="products" role="radiogroup" aria-label="${T.curtain}">
           ${PRODUCTS.map(
             (x) => `
@@ -95,7 +96,7 @@ const view: View = {
     if (!session.photo) return;
     const photo = session.photo;
     const stage = $(el, '[data-stage]');
-    const canvas = $<HTMLCanvasElement>(el, '[data-canvas]');
+    let canvas = $<HTMLCanvasElement>(el, '[data-canvas]');
     const handlesBox = $(el, '[data-handles]');
     const handles = $$<HTMLButtonElement>(el, '[data-h]');
     const poly = $<SVGPolygonElement>(el, '[data-poly]');
@@ -105,7 +106,12 @@ const view: View = {
     const needsDetect = !session.corners;
     if (!session.corners) session.corners = defaultCorners(photo.width, photo.height);
     const corners = session.corners;
-    let renderer: CurtainRenderer | null = null;
+    // 3D (three.js) when the device can, otherwise the 2D shader renderer; both share this interface.
+    type AnyRenderer = Pick<CurtainRenderer, 'setPhoto' | 'setOcclusion' | 'setFabricTexture'> & {
+      readonly canvas: HTMLCanvasElement;
+      render(corners: Point[], p: ReturnType<typeof params>): void;
+    };
+    let renderer: AnyRenderer | null = null;
     // Curtain opacity: see-through while corners are being placed so the window frame stays visible.
     let alpha = 1;
     let alphaAnim = 0;
@@ -115,7 +121,7 @@ const view: View = {
     const params = () => {
       const p = product();
       const c = p.colors[session.colorIndex] ?? p.colors[0];
-      return { type: p.type, color: c.hex, open: session.open, tulle: session.tulle, drop: session.drop, alpha };
+      return { type: p.type, color: c.hex, open: session.open, tulle: session.tulle, drop: session.drop, alpha, finish: p.finish };
     };
 
     const draw = () => {
@@ -148,11 +154,14 @@ const view: View = {
     };
 
     // Fit the photo inside the stage (like object-fit: contain) and keep the handle layer on top of it.
+    // The photo fits the space above the settings sheet; when the sheet slides down, it grows.
+    let sheetVisible = 0;
     const layout = () => {
       const r = stage.getBoundingClientRect();
-      scale = Math.min(r.width / photo.width, r.height / photo.height);
+      const availH = Math.max(120, r.height - sheetVisible + 26);
+      scale = Math.min(r.width / photo.width, availH / photo.height);
       const w = photo.width * scale, h = photo.height * scale;
-      const left = (r.width - w) / 2, top = (r.height - h) / 2;
+      const left = (r.width - w) / 2, top = Math.max(0, (availH - h) / 2);
       for (const n of [canvas, handlesBox]) {
         n.style.width = `${w}px`;
         n.style.height = `${h}px`;
@@ -164,9 +173,30 @@ const view: View = {
     const ro = new ResizeObserver(layout);
     ro.observe(stage);
 
-    loadFold()
-      .then((fold) => {
-        renderer = new CurtainRenderer(canvas, fold);
+    const make3D = async (): Promise<AnyRenderer | null> => {
+      try {
+        const { Curtain3D } = await import('../ar/renderer3d');
+        return new Curtain3D(canvas);
+      } catch {
+        return null;
+      }
+    };
+    const chip = $(el, '[data-status]'), chipText = $(el, '[data-status-text]');
+    chipText.textContent = t().loading3d;
+    chip.classList.add('busy');
+    Promise.all([loadFold(), make3D()])
+      .then(([fold, r3]) => {
+        if (!alive) return;
+        chip.classList.remove('busy');
+        chipText.textContent = t().tapHint;
+        if (r3) renderer = r3;
+        else {
+          // a canvas keeps whichever context it got first; give the 2D renderer a fresh one
+          const fresh = canvas.cloneNode() as HTMLCanvasElement;
+          canvas.replaceWith(fresh);
+          canvas = fresh;
+          renderer = new CurtainRenderer(canvas, fold);
+        }
         renderer.setPhoto(photo);
         useTexture();
         layout();
@@ -442,10 +472,20 @@ const view: View = {
     }
 
     const toggle = $(el, '[data-toggle]');
+    const sheet = bottomSheet($(el, '[data-sheet]'), {
+      onMove: (v) => {
+        sheetVisible = v;
+        stage.style.setProperty('--sv', `${v}px`);
+        layout();
+      },
+    });
     toggle.addEventListener('click', () => {
       const hidden = el.classList.toggle('preview');
       toggle.setAttribute('aria-pressed', String(hidden));
       toggle.textContent = hidden ? t().edit : t().preview;
+      // Preview = the whole photo: tuck the settings away; editing brings them back.
+      if (hidden) sheet.close();
+      else sheet.open();
     });
 
     $(el, '[data-auto]').addEventListener('click', () => autoDetect(true));
@@ -477,6 +517,7 @@ const view: View = {
     });
 
     return () => {
+      sheet.destroy();
       alive = false;
       cancelAnimationFrame(anim);
       cancelAnimationFrame(alphaAnim);
