@@ -1,0 +1,1 @@
+const l={productId:"barxat",colorIndex:0,photo:null,corners:null,open:.55,tulle:.45,drop:.35,result:null,resultUrl:null,originalUrl:null};function e(r,o=null){l.photo=r,l.corners=o,n(),l.originalUrl&&URL.revokeObjectURL(l.originalUrl),l.originalUrl=null}function n(){l.resultUrl&&URL.revokeObjectURL(l.resultUrl),l.result=null,l.resultUrl=null}export{e as a,n as c,l as s};
