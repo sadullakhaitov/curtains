@@ -25,6 +25,8 @@ const view: View = {
     <main class="screen product">
       <div class="p-hero">
         <div class="${fc} sway" data-fabric style="${fabricStyle(p, c.hex)}" role="img" aria-label="${esc(T.fabricOf(name, tx(c.name)))}"></div>
+        <canvas class="p-3d" data-3d aria-label="${esc(name)} — 3D"></canvas>
+        <span class="p-3d-hint gp chip" data-3d-hint hidden>${icon.move(14)} ${T.rotateHint}</span>
         ${p.image ? `<img class="p-photo" data-photo src="${p.image}" alt="${esc(name)} — ${T.inInterior}" decoding="async">` : ''}
         <span class="p-hero-shade" aria-hidden="true"></span>
       </div>
@@ -85,6 +87,66 @@ const view: View = {
     if (!p) return;
     let ci = session.productId === p.id ? Math.min(session.colorIndex, p.colors.length - 1) : 0;
 
+    // ---- 3D showroom: the curtain in a virtual room, turned with a finger ----
+    const cv = $<HTMLCanvasElement>(el, '[data-3d]');
+    const hero = cv.parentElement as HTMLElement;
+    let view3d: { renderStudio: (y: number, pi: number, q: Record<string, unknown>) => void; setFabricTexture: (i: HTMLImageElement | null) => void } | null = null;
+    let yaw = 0.35, pitch = 0.05, auto = true, raf3 = 0, alive3 = true;
+    const studioParams = () => {
+      const col = p.colors[ci] ?? p.colors[0];
+      const flat = p.type === 'roller' || p.type === 'zebra';
+      return { type: p.type, color: col.hex, open: flat ? 0.12 : 0.3, tulle: p.type === 'tulle' ? 0.9 : flat ? 0.25 : 0.35, drop: 0.2, alpha: 1, finish: p.finish };
+    };
+    const draw3d = () => {
+      raf3 = 0;
+      view3d?.renderStudio(yaw, pitch, studioParams());
+    };
+    const redraw3d = () => {
+      if (!raf3) raf3 = requestAnimationFrame(draw3d);
+    };
+    const t0 = performance.now();
+    const spin = (now: number) => {
+      if (!alive3 || !auto) return;
+      const k = (now - t0) / 1000;
+      yaw = 0.35 * Math.cos(k * 0.6);
+      draw3d();
+      if (k < 7) requestAnimationFrame(spin);
+      else auto = false;
+    };
+    (async () => {
+      try {
+        const [{ Curtain3D }, rmod] = await Promise.all([import('../ar/renderer3d'), import('../ar/renderer')]);
+        if (!alive3) return;
+        const r = new Curtain3D(cv);
+        const b = hero.getBoundingClientRect();
+        r.setStudio(b.width, b.height);
+        if (p.texture) r.setFabricTexture(await rmod.loadTexture(p.texture));
+        view3d = r as unknown as typeof view3d;
+        draw3d();
+        hero.classList.add('has-3d');
+        el.querySelector<HTMLElement>('[data-3d-hint]')!.hidden = false;
+        requestAnimationFrame(spin);
+      } catch {
+        cv.remove();
+      }
+    })();
+    let drag: { x: number; y: number; yaw: number; pitch: number } | null = null;
+    cv.addEventListener('pointerdown', (e) => {
+      auto = false;
+      cv.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, y: e.clientY, yaw, pitch };
+      el.querySelector<HTMLElement>('[data-3d-hint]')?.classList.add('gone');
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      yaw = Math.max(-0.85, Math.min(0.85, drag.yaw + (e.clientX - drag.x) * 0.006));
+      pitch = Math.max(-0.2, Math.min(0.3, drag.pitch + (e.clientY - drag.y) * 0.004));
+      redraw3d();
+    });
+    const endDrag = () => (drag = null);
+    cv.addEventListener('pointerup', endDrag);
+    cv.addEventListener('pointercancel', endDrag);
+
     const setMode = (mode: string) => {
       const photo = el.querySelector<HTMLElement>('[data-photo]');
       if (!photo) return;
@@ -104,6 +166,7 @@ const view: View = {
         session.productId = p.id;
         session.colorIndex = ci;
         $(el, '[data-fabric]').style.backgroundColor = c.hex;
+        redraw3d();
         $(el, '[data-cname]').textContent = tx(c.name);
         $(el, '[data-cname2]').textContent = tx(c.name);
         for (const o of $$(el, '[data-ci]')) {
@@ -136,6 +199,9 @@ const view: View = {
       choose();
       navigate('/adjust');
     });
+    return () => {
+      alive3 = false;
+    };
   },
 };
 export default view;

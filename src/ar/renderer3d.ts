@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { squareToQuad, type Point } from './homography';
 import type { CurtainParams } from './renderer';
 
@@ -369,10 +370,12 @@ export class Curtain3D {
       const z = -0.04;
       const zebra = p.type === 'zebra' && !!this.fabTex;
       const tileH = this.fabAspect * (xR - xL);
+      // fabric under tension: faint ripples that catch the light, strongest near the sides
+      const ripple = (u: number, v: number) => 0.0018 * Math.sin(v * 70 + u * 3) * (0.3 + 0.7 * Math.abs(u - 0.5) * 2);
       const geo = cloth(
         60,
-        40,
-        (u, v) => [xL + u * (xR - xL), yT + v * (yB - yT), z + 0.0015 * Math.sin(u * 40) * (zebra ? 0 : 1)],
+        60,
+        (u, v) => [xL + u * (xR - xL), yT + v * (yB - yT), z + ripple(u, v)],
         (u, v) => (zebra ? [u, ((yB - yT) * (1 - v)) / tileH] : [(u * (xR - xL)) / 0.25, ((1 - v) * (yB - yT)) / 0.25]),
       );
       const mat = new THREE.MeshPhysicalMaterial({
@@ -384,9 +387,26 @@ export class Curtain3D {
         side: THREE.DoubleSide,
         transparent: zebra,
       });
-      this.translucency(mat, zebra ? 0.55 : 0.12 + 0.4 * lum, hw, zebra ? 0.42 + 0.52 * p.tulle : null);
+      this.translucency(mat, zebra ? 0.55 : 0.12 + 0.4 * lum, hw, zebra ? 0.36 : null);
       const blind = new THREE.Mesh(geo, mat);
       add(blind);
+      if (zebra) {
+        // The back layer of a zebra blind: by day its sheer bands line up with the front ones and light
+        // comes through; by night it slides half a band so every sheer stripe is backed by an opaque one.
+        const band = 1 / 8; // the photo holds 4 opaque + 4 sheer bands
+        const shift = band * p.tulle;
+        const back = cloth(
+          60,
+          30,
+          (u, v) => [xL + u * (xR - xL), yT + v * (yB - yT), z + 0.012 + ripple(u, v) * 0.5],
+          (u, v) => [u, ((yB - yT) * (1 - v)) / tileH + shift],
+        );
+        const bmat = new THREE.MeshPhysicalMaterial({ color: color.clone().multiplyScalar(0.92), map: this.fabTex, roughness: 0.8, side: THREE.DoubleSide, transparent: true });
+        this.translucency(bmat, 0.55, hw, 0.36);
+        const bm = new THREE.Mesh(back, bmat);
+        bm.renderOrder = -1;
+        add(bm);
+      }
 
       // cassette (fabric-wrapped tube), end caps, bottom bar, bead chain
       const casMat = new THREE.MeshPhysicalMaterial({ color, map: zebra ? this.fabTex : this.weave, roughness: 0.6, sheen: 0.2 });
@@ -537,6 +557,19 @@ export class Curtain3D {
 
   render(corners: Point[], p: Curtain3DParams) {
     const { f, hw, r1, r2, r3, t } = this.pose(corners);
+    this.frame(f, hw, r1, r2, r3, t, p, this.roomLight(corners));
+  }
+
+  private frame(
+    f: number,
+    hw: number,
+    r1: THREE.Vector3,
+    r2: THREE.Vector3,
+    r3: THREE.Vector3,
+    t: THREE.Vector3,
+    p: Curtain3DParams,
+    room: { level: number; color: THREE.Color },
+  ) {
     const w = this.width, h = this.height;
     const near = 0.05, far = 60;
     this.camera.projectionMatrix.set(
@@ -555,19 +588,14 @@ export class Curtain3D {
     );
     this.world.matrixWorldNeedsUpdate = true;
 
-    const key = [p.type, p.color, p.open.toFixed(3), p.type === 'zebra' ? '' : p.tulle.toFixed(3), p.drop.toFixed(3), hw.toFixed(2), p.finish, !!this.fabTex].join('|');
+    const key = [p.type, p.color, p.open.toFixed(3), p.tulle.toFixed(3), p.drop.toFixed(3), hw.toFixed(2), p.finish, !!this.fabTex].join('|');
     if (key !== this.buildKey) {
       this.build(p, hw);
       this.buildKey = key;
-      this.ensureShadowWall(hw);
+      if (!this.studio) this.ensureShadowWall(hw);
     }
-    for (const tr of this.translucent) {
-      if (tr.uniforms.uRes) (tr.uniforms.uRes.value as THREE.Vector2).set(w, h);
-      if (tr.uniforms.uSheer) tr.uniforms.uSheer.value = 0.42 + 0.52 * p.tulle;
-    }
+    for (const tr of this.translucent) if (tr.uniforms.uRes) (tr.uniforms.uRes.value as THREE.Vector2).set(w, h);
 
-    // Lights: match the room around the window.
-    const room = this.roomLight(corners);
     const camPos = new THREE.Vector3(
       -(r1.x * t.x + r1.y * t.y + r1.z * t.z),
       -(r2.x * t.x + r2.y * t.y + r2.z * t.z),
@@ -592,9 +620,112 @@ export class Curtain3D {
 
     this.ovMat.uniforms.uAlpha.value = p.alpha ?? 1;
     this.r.clear();
+    if (this.studio) {
+      this.r.render(this.scene, this.camera);
+      return;
+    }
     this.r.render(this.bgScene, this.ortho);
     this.r.render(this.scene, this.camera);
     this.r.render(this.ovScene, this.ortho);
+  }
+
+  // ---------------- showroom: a virtual room to turn the curtain around ----------------
+  private studio: THREE.Group | null = null;
+  private studioHw = 1.5;
+
+  /** Switches this renderer to a virtual room (product page), sized to the canvas' CSS box. */
+  setStudio(cssW: number, cssH: number) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.width = Math.round(cssW * dpr);
+    this.height = Math.round(cssH * dpr);
+    this.r.setSize(this.width, this.height, false);
+    this.r.setClearColor(0xe9e3d8, 1);
+    if (this.studio) return;
+    const hw = this.studioHw;
+    const g = new THREE.Group();
+    // wall with the window opening
+    const wallShape = new THREE.Shape();
+    wallShape.moveTo(-4, -3);
+    wallShape.lineTo(WW + 4, -3);
+    wallShape.lineTo(WW + 4, hw + 0.95);
+    wallShape.lineTo(-4, hw + 0.95);
+    wallShape.lineTo(-4, -3);
+    const hole = new THREE.Path();
+    hole.moveTo(0, 0);
+    hole.lineTo(0, hw);
+    hole.lineTo(WW, hw);
+    hole.lineTo(WW, 0);
+    hole.lineTo(0, 0);
+    wallShape.holes.push(hole);
+    const wall = new THREE.Mesh(new THREE.ShapeGeometry(wallShape), new THREE.MeshStandardMaterial({ color: 0xece5d9, roughness: 0.95, side: THREE.DoubleSide }));
+    wall.receiveShadow = true;
+    g.add(wall);
+    // daylight outside: a soft sky gradient behind the glass
+    const sky = document.createElement('canvas');
+    sky.width = 4;
+    sky.height = 128;
+    const sc = sky.getContext('2d')!;
+    const grad = sc.createLinearGradient(0, 0, 0, 128);
+    grad.addColorStop(0, '#cfe3f5');
+    grad.addColorStop(0.65, '#f4f8fb');
+    grad.addColorStop(1, '#e6efe2');
+    sc.fillStyle = grad;
+    sc.fillRect(0, 0, 4, 128);
+    const skyTex = new THREE.CanvasTexture(sky);
+    skyTex.colorSpace = THREE.SRGBColorSpace;
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(WW, hw), new THREE.MeshBasicMaterial({ map: skyTex, toneMapped: false }));
+    glass.position.set(WW / 2, hw / 2, 0.08);
+    glass.rotation.x = Math.PI; // our y points down
+    g.add(glass);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.4 });
+    const bar = (w: number, h: number, x: number, y: number, z = 0.05, d = 0.06) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      g.add(m);
+    };
+    bar(WW + 0.1, 0.06, WW / 2, -0.02);
+    bar(WW + 0.1, 0.06, WW / 2, hw + 0.02);
+    bar(0.06, hw, -0.02, hw / 2);
+    bar(0.06, hw, WW + 0.02, hw / 2);
+    bar(0.04, hw, WW / 2, hw / 2, 0.06, 0.04);
+    bar(WW + 0.22, 0.035, WW / 2, hw + 0.06, -0.03, 0.18); // sill
+    // floor
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 6), new THREE.MeshStandardMaterial({ color: 0xb08a63, roughness: 0.7 }));
+    floor.rotation.x = Math.PI / 2;
+    floor.position.set(WW / 2, hw + 0.95, -2.5);
+    floor.receiveShadow = true;
+    g.add(floor);
+    this.world.add(g);
+    this.studio = g;
+    this.scene.environment = this.pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    // gentle daylight "behind the cloth"
+    const white = new THREE.DataTexture(new Uint8Array([235, 242, 250, 255]), 1, 1);
+    white.colorSpace = THREE.SRGBColorSpace;
+    white.needsUpdate = true;
+    this.photoTex = white;
+    this.buildKey = '';
+  }
+
+  /** Renders the showroom from an orbit angle (radians) around the window. */
+  renderStudio(yaw: number, pitch: number, p: Curtain3DParams) {
+    const hw = this.studioHw;
+    const c = new THREE.Vector3(WW / 2, hw * 0.62, 0);
+    const d = 3.4;
+    const cam = new THREE.Vector3(
+      c.x + d * Math.sin(yaw) * Math.cos(pitch),
+      c.y - d * Math.sin(pitch),
+      c.z - d * Math.cos(yaw) * Math.cos(pitch),
+    );
+    const fwd = c.clone().sub(cam).normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), fwd).normalize();
+    const down = new THREE.Vector3().crossVectors(fwd, right).normalize();
+    // rows of R are the camera axes; frame() wants its columns
+    const r1 = new THREE.Vector3(right.x, down.x, fwd.x);
+    const r2 = new THREE.Vector3(right.y, down.y, fwd.y);
+    const r3 = new THREE.Vector3(right.z, down.z, fwd.z);
+    const t = new THREE.Vector3(-right.dot(cam), -down.dot(cam), -fwd.dot(cam));
+    this.frame(0.95 * this.height, hw, r1, r2, r3, t, p, { level: 1, color: new THREE.Color(1, 0.98, 0.95) });
   }
 
   /** An invisible wall around the window that only shows the curtains' soft shadows. */

@@ -3,12 +3,27 @@ import { findProduct, PRODUCTS } from '../data/products';
 import { t, tx } from '../i18n';
 import { back, navigate, type View } from '../router';
 import { preloadVision } from '../ar/vision';
+import { findLenses, fmtZoom, presets, splitZoom, zoomCaps, type Lens } from '../ar/zoom';
 import { session, setPhoto } from '../store';
 import { fabricClass, fabricStyle } from '../ui/card';
 import { $, esc, html, toast } from '../ui/dom';
 import { icon } from '../ui/icons';
 
 /** Draws any image source into a canvas no larger than MAX_PHOTO_SIDE. */
+/** Captures the centre 1/zoom of a video frame (digital zoom), no larger than MAX_PHOTO_SIDE. */
+function captureVideo(video: HTMLVideoElement, zoom: number) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const cw = vw / zoom, ch = vh / zoom;
+  const k = Math.min(1, MAX_PHOTO_SIDE / Math.max(cw, ch));
+  const c = document.createElement('canvas');
+  c.width = Math.round(cw * k);
+  c.height = Math.round(ch * k);
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
+  return c;
+}
+
 function toCanvas(src: CanvasImageSource, w: number, h: number) {
   const k = Math.min(1, MAX_PHOTO_SIDE / Math.max(w, h));
   const c = document.createElement('canvas');
@@ -78,6 +93,7 @@ const view: View = {
     <main class="screen camera">
       <div class="viewfinder">
         <div class="video-slot" data-video-slot data-label="${T.camView}"></div>
+        <div class="zoom-bar gp" data-zoom role="group" aria-label="${T.zoom}" hidden></div>
         <div class="cam-off" data-off hidden>
           <span class="cam-off-icon glass">${icon.camera(30)}</span>
           <b>${T.camOff}</b>
@@ -136,6 +152,100 @@ const view: View = {
     let torchOn = false;
     let alive = true;
 
+    // ---- zoom state: total = lens factor × hardware × digital ----
+    let lenses: Lens[] = [{ id: null, factor: 1 }];
+    let lens: Lens = lenses[0];
+    let hw: ReturnType<typeof zoomCaps> = null;
+    let zoom = 1;
+    let digital = 1;
+    let range = { values: [1, 2, 3], min: 1, max: 4 };
+    const zoomBar = $(el, '[data-zoom]');
+    const renderZoom = () => {
+      if (facing !== 'environment') {
+        zoomBar.hidden = true;
+        return;
+      }
+      zoomBar.hidden = false;
+      // the preset nearest the current zoom is the active one and shows the exact value
+      let best = 0;
+      range.values.forEach((v, i) => {
+        if (Math.abs(Math.log(zoom / v)) < Math.abs(Math.log(zoom / range.values[best]))) best = i;
+      });
+      zoomBar.innerHTML = range.values
+        .map((v, i) => {
+          const on = i === best;
+          return `<button class="zoom-chip${on ? ' is-on' : ''}" data-z="${v}" aria-pressed="${on}" aria-label="${fmtZoom(v)}">${on ? fmtZoom(zoom) : fmtZoom(v)}</button>`;
+        })
+        .join('');
+    };
+    const applyZoom = async (z: number, allowLensSwitch = true) => {
+      z = Math.min(range.max, Math.max(range.min, z));
+      if (allowLensSwitch && lenses.length > 1) {
+        // the longest lens that does not overshoot the wanted zoom
+        const target = lenses.filter((l) => l.factor <= z + 1e-6).pop() ?? lenses[0];
+        if (target !== lens) {
+          lens = target;
+          zoom = z;
+          await start();
+          return;
+        }
+      }
+      const rel = Math.max(z / lens.factor, hw ? hw.min : 1);
+      const part = splitZoom(rel, hw);
+      const track = stream?.getVideoTracks()[0];
+      if (part.hw !== null && track) {
+        try {
+          await track.applyConstraints({ advanced: [{ zoom: part.hw } as MediaTrackConstraintSet] });
+        } catch {
+          /* some devices refuse in-between values: digital zoom covers it */
+        }
+      }
+      digital = part.digital;
+      video.style.transform = digital > 1.001 ? `scale(${digital})` : '';
+      zoom = lens.factor * (part.hw ?? 1) * digital;
+      renderZoom();
+    };
+    zoomBar.addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-z]');
+      if (b) applyZoom(Number(b.dataset.z));
+    });
+
+    // pinch to zoom on the preview (within the current lens while pinching; lens change when released)
+    const vf = $(el, '.viewfinder');
+    const pts = new Map<number, { x: number; y: number }>();
+    let pinch0 = 0, zoom0 = 1, pinchRaf = 0, pending = 0;
+    const dist = () => {
+      const [a, b] = [...pts.values()];
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+    vf.addEventListener('pointerdown', (e) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        pinch0 = dist();
+        zoom0 = zoom;
+      }
+    });
+    vf.addEventListener('pointermove', (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size !== 2 || !pinch0) return;
+      pending = zoom0 * (dist() / pinch0);
+      if (!pinchRaf)
+        pinchRaf = requestAnimationFrame(() => {
+          pinchRaf = 0;
+          applyZoom(pending, false);
+        });
+    });
+    const pinchEnd = (e: PointerEvent) => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2 && pinch0) {
+        pinch0 = 0;
+        applyZoom(zoom, true);
+      }
+    };
+    vf.addEventListener('pointerup', pinchEnd);
+    vf.addEventListener('pointercancel', pinchEnd);
+
     const stop = () => {
       stream?.getTracks().forEach((t) => t.stop());
       stream = null;
@@ -155,9 +265,10 @@ const view: View = {
         return;
       }
       try {
+        const size = { width: { ideal: 1920 }, height: { ideal: 1440 } };
         const s = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1440 } },
+          video: facing === 'environment' && lens.id ? { deviceId: { exact: lens.id }, ...size } : { facingMode: { ideal: facing }, ...size },
         });
         if (!alive) {
           s.getTracks().forEach((t) => t.stop());
@@ -173,6 +284,17 @@ const view: View = {
         const torch = $(el, '[data-torch]');
         torch.hidden = !caps.torch;
         $(el, '[data-torch-spacer]').hidden = !!caps.torch;
+        // Lens names are only readable after permission, so look for the other lenses now.
+        if (facing === 'environment' && lenses.length === 1 && lenses[0].id === null) {
+          const found = await findLenses();
+          if (found.length > 1) {
+            lenses = found;
+            lens = lenses.find((l) => l.factor === 1) ?? lenses[0];
+          }
+        }
+        hw = facing === 'environment' ? zoomCaps(track) : null;
+        range = presets(lenses, hw);
+        await applyZoom(facing === 'environment' ? zoom : 1, false);
       } catch (e) {
         const name = (e as DOMException).name;
         showOff(name === 'NotAllowedError' ? t().camDenied : undefined);
@@ -190,7 +312,8 @@ const view: View = {
         return;
       }
       el.classList.add('flash');
-      done(toCanvas(video, video.videoWidth, video.videoHeight));
+      // what you see is what you get: the digital part of the zoom crops the capture
+      done(digital > 1.001 ? captureVideo(video, digital) : toCanvas(video, video.videoWidth, video.videoHeight));
     });
 
     $<HTMLInputElement>(el, '[data-file]').addEventListener('change', async (e) => {
@@ -218,6 +341,9 @@ const view: View = {
 
     $(el, '[data-flip]').addEventListener('click', () => {
       facing = facing === 'environment' ? 'user' : 'environment';
+      zoom = 1;
+      digital = 1;
+      video.style.transform = '';
       start();
     });
 

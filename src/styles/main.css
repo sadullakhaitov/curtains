@@ -432,3 +432,41 @@ html[data-nav='fade']::view-transition-old(root), html[data-nav='fade']::view-tr
 .sheet.is-dragging .sheet-handle { cursor: grabbing; }
 .adjust .stage-hint { top: auto; bottom: calc(var(--sv, 320px) + 4px); }
 .result-stage .res-img { inset: 0 0 auto 0; height: calc(100% - var(--sv, 0px)); }
+
+/* ---------- before / after divider ---------- */
+.compare { position: absolute; left: 0; top: 0; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; cursor: ew-resize; border-radius: 4px; overflow: hidden; }
+.compare.single { cursor: default; }
+.compare .cmp-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.compare .cmp-after { clip-path: inset(0 0 0 var(--pos)); }
+.compare.single .cmp-after { clip-path: none; }
+.cmp-line { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15), 0 0 12px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.cmp-knob { position: absolute; top: 50%; left: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.2s var(--ease); }
+.cmp-knob svg { width: 14px; height: 14px; }
+.compare.is-dragging .cmp-knob { transform: scale(1.12); }
+.compare:focus-within .cmp-knob { outline: 2px solid #fff; outline-offset: 2px; }
+.cmp-tag { position: absolute; top: 12px; height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; pointer-events: none; }
+.cmp-tag.left { left: 12px; }
+.cmp-tag.right { right: 12px; }
+.cmp-range { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.cmp-hint { height: 34px; font-size: 12px; }
+
+/* ---------- camera zoom ---------- */
+.viewfinder { touch-action: none; }
+.viewfinder video { transform-origin: 50% 50%; transition: transform 0.12s linear; }
+.zoom-bar { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border-radius: 22px; z-index: 3; }
+.zoom-chip { min-width: 38px; height: 34px; padding: 0 8px; border-radius: 17px; border: 0; background: transparent; color: #fff; font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; transition: background-color 0.25s var(--ease), color 0.25s, transform 0.2s var(--ease); }
+.zoom-chip.is-on { background: rgba(0, 0, 0, 0.45); color: #f3d57e; transform: scale(1.08); }
+.no-cam .zoom-bar { display: none; }
+
+/* ---------- product page 3D showroom ---------- */
+.p-3d { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.6s var(--ease); touch-action: none; cursor: grab; }
+.p-hero.has-3d .p-3d { opacity: 1; }
+.p-hero.has-3d [data-fabric] { visibility: hidden; }
+.p-3d:active { cursor: grabbing; }
+.p-3d-hint { position: absolute; left: 50%; bottom: 48px; transform: translateX(-50%); height: 32px; font-size: 12px; z-index: 2; pointer-events: none; transition: opacity 0.4s; }
+.p-3d-hint.gone { opacity: 0; }
+.p-photo { z-index: 1; }
+
+/* the hero shade and hint must not swallow the rotate gesture */
+.p-hero-shade { pointer-events: none; z-index: 1; }
+.p-3d-hint { top: calc(74px + var(--safe-t)); bottom: auto; }
